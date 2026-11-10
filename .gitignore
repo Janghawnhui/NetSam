@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+
+# 로컬 개발 DB (실제 PC에서 수집된 개인정보가 들어있을 수 있음)
+*.db
+*.db-shm
+*.db-wal
+
+# 사용자 비밀값 (dotnet user-secrets는 저장소 밖 %APPDATA%에 저장되므로 여기 올 일은 없지만 방어적으로)
+*.pfx
+*.user
+
+# IDE
+.vs/
+.idea/
+*.user

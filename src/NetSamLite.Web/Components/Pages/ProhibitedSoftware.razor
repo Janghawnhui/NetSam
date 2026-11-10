@@ -1,0 +1,137 @@
+@page "/prohibited-software"
+@using NetSamLite.Server.Data.Entities
+@using NetSamLite.Server.Policy
+@inject ProhibitedSoftwareAlertService AlertService
+@inject ProhibitedSoftwareService ProhibitedService
+
+<PageTitle>금지 SW 알림</PageTitle>
+
+<h1>금지 SW 알림</h1>
+
+@if (_alerts is null)
+{
+    <p>불러오는 중...</p>
+}
+else if (_alerts.Count == 0)
+{
+    <p>현재 설치된 디바이스에서 금지 SW가 발견되지 않았습니다.</p>
+}
+else
+{
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>금지 제품명</th>
+                <th>금지 사유</th>
+                <th>설치된 디바이스 수</th>
+                <th>디바이스 목록</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var alert in _alerts)
+            {
+                <tr>
+                    <td>@alert.ProductName</td>
+                    <td>@alert.Reason</td>
+                    <td>@alert.Devices.Count</td>
+                    <td>@string.Join(", ", alert.Devices.Select(d => d.ComputerName))</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h2>금지 목록 관리</h2>
+
+@if (_errorMessage is not null)
+{
+    <p class="status-over">@_errorMessage</p>
+}
+
+<EditForm Model="_form" OnValidSubmit="AddAsync">
+    <p>
+        제품명: <InputText @bind-Value="_form.ProductName" />
+        금지 사유: <InputText @bind-Value="_form.Reason" />
+        <button type="submit">추가</button>
+    </p>
+</EditForm>
+
+@if (_prohibitedList is null)
+{
+    <p>불러오는 중...</p>
+}
+else
+{
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>제품명</th>
+                <th>사유</th>
+                <th>등록일</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in _prohibitedList)
+            {
+                <tr>
+                    <td>@item.ProductName</td>
+                    <td>@item.Reason</td>
+                    <td>@item.AddedAtUtc.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                    <td><button type="button" @onclick="() => DeleteAsync(item.Id)">삭제</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private sealed class ProhibitedFormModel
+    {
+        public string ProductName { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+    }
+
+    private IReadOnlyList<ProhibitedSoftwareAlert>? _alerts;
+    private List<ProhibitedSoftwareEntity>? _prohibitedList;
+    private ProhibitedFormModel _form = new();
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _alerts = await AlertService.BuildAlertsAsync(CancellationToken.None);
+        _prohibitedList = await ProhibitedService.ListAsync(CancellationToken.None);
+    }
+
+    private async Task AddAsync()
+    {
+        var request = new ProhibitedSoftwareRequest(_form.ProductName, _form.Reason);
+        if (!ProhibitedSoftwareService.IsValid(request))
+        {
+            return;
+        }
+
+        try
+        {
+            await ProhibitedService.CreateAsync(request, CancellationToken.None);
+            _errorMessage = null;
+            _form = new ProhibitedFormModel();
+            await RefreshAsync();
+        }
+        catch (DuplicateProhibitedSoftwareException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        await ProhibitedService.DeleteAsync(id, CancellationToken.None);
+        await RefreshAsync();
+    }
+}

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NetSamLite.Agent/NetSamLite.Agent.csproj" />
+    <Project Path="src/NetSamLite.Server/NetSamLite.Server.csproj" />
+    <Project Path="src/NetSamLite.Shared/NetSamLite.Shared.csproj" />
+    <Project Path="src/NetSamLite.Web/NetSamLite.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NetSamLite.Agent.Tests/NetSamLite.Agent.Tests.csproj" />
+    <Project Path="tests/NetSamLite.Server.Tests/NetSamLite.Server.Tests.csproj" />
+  </Folder>
+</Solution>

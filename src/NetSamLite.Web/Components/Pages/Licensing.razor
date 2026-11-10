@@ -1,0 +1,210 @@
+@page "/licensing"
+@using NetSamLite.Server.Data.Entities
+@using NetSamLite.Server.Licensing
+@inject LicenseMatchingService MatchingService
+@inject LicenseService LicenseService
+
+<PageTitle>라이선스 현황</PageTitle>
+
+<h1>라이선스 현황</h1>
+
+@if (_report is null)
+{
+    <p>불러오는 중...</p>
+}
+else
+{
+    <h2>매칭 결과</h2>
+    @if (_report.Matched.Count == 0)
+    {
+        <p>라이선스가 등록된 제품이 없습니다.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>제품명</th>
+                    <th>설치 수</th>
+                    <th>보유 수량</th>
+                    <th>상태</th>
+                    <th>부족분</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _report.Matched.OrderByDescending(m => m.Shortage))
+                {
+                    <tr>
+                        <td>@item.ProductName</td>
+                        <td>@item.InstalledCount</td>
+                        <td>@item.LicensedQuantity</td>
+                        <td class="@StatusCssClass(item.Status)">@item.Status</td>
+                        <td>@item.Shortage</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h2>라이선스 미등록</h2>
+    @if (_report.UnlicensedProducts.Count == 0)
+    {
+        <p>분류된 제품은 모두 라이선스가 등록돼 있습니다.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>제품명</th>
+                    <th>설치 수</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _report.UnlicensedProducts)
+                {
+                    <tr>
+                        <td>@item.ProductName</td>
+                        <td>@item.InstalledCount</td>
+                        <td><a href="#license-form" @onclick="() => StartCreateFor(item.ProductName)">라이선스 등록</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+<h2 id="license-form">라이선스 목록 관리</h2>
+
+<EditForm Model="_form" OnValidSubmit="SubmitAsync">
+    <p>
+        제품명: <InputText @bind-Value="_form.ProductName" />
+        유형: <InputText @bind-Value="_form.LicenseType" />
+        수량: <InputNumber @bind-Value="_form.Quantity" />
+        만료일: <InputDate @bind-Value="_form.ExpiresAtUtc" />
+        비고: <InputText @bind-Value="_form.Notes" />
+        <button type="submit">@(_editingId is null ? "추가" : "수정 저장")</button>
+        @if (_editingId is not null)
+        {
+            <button type="button" @onclick="CancelEdit">취소</button>
+        }
+    </p>
+</EditForm>
+
+@if (_licenses is null)
+{
+    <p>불러오는 중...</p>
+}
+else
+{
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>제품명</th>
+                <th>유형</th>
+                <th>수량</th>
+                <th>만료일</th>
+                <th>비고</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var license in _licenses)
+            {
+                <tr>
+                    <td>@license.ProductName</td>
+                    <td>@license.LicenseType</td>
+                    <td>@license.Quantity</td>
+                    <td>@(license.ExpiresAtUtc?.ToString("yyyy-MM-dd") ?? "영구")</td>
+                    <td>@license.Notes</td>
+                    <td>
+                        <button type="button" @onclick="() => StartEdit(license)">수정</button>
+                        <button type="button" @onclick="() => DeleteAsync(license.Id)">삭제</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private sealed class LicenseFormModel
+    {
+        public string ProductName { get; set; } = string.Empty;
+        public string LicenseType { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public DateTime? ExpiresAtUtc { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    private LicenseMatchReport? _report;
+    private List<LicenseEntity>? _licenses;
+    private LicenseFormModel _form = new();
+    private int? _editingId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _report = await MatchingService.BuildReportAsync(CancellationToken.None);
+        _licenses = await LicenseService.ListAsync(CancellationToken.None);
+    }
+
+    private void StartCreateFor(string productName)
+    {
+        _editingId = null;
+        _form = new LicenseFormModel { ProductName = productName, Quantity = 1 };
+    }
+
+    private void StartEdit(LicenseEntity license)
+    {
+        _editingId = license.Id;
+        _form = new LicenseFormModel
+        {
+            ProductName = license.ProductName,
+            LicenseType = license.LicenseType,
+            Quantity = license.Quantity,
+            ExpiresAtUtc = license.ExpiresAtUtc,
+            Notes = license.Notes,
+        };
+    }
+
+    private void CancelEdit()
+    {
+        _editingId = null;
+        _form = new LicenseFormModel();
+    }
+
+    private async Task SubmitAsync()
+    {
+        var request = new LicenseRequest(_form.ProductName, _form.LicenseType, _form.Quantity, _form.ExpiresAtUtc, _form.Notes);
+        if (_editingId is { } id)
+        {
+            await LicenseService.UpdateAsync(id, request, CancellationToken.None);
+        }
+        else
+        {
+            await LicenseService.CreateAsync(request, CancellationToken.None);
+        }
+
+        CancelEdit();
+        await RefreshAsync();
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        await LicenseService.DeleteAsync(id, CancellationToken.None);
+        await RefreshAsync();
+    }
+
+    private static string StatusCssClass(string status) => status switch
+    {
+        "초과 설치" => "status-over",
+        "미사용 라이선스" => "status-under",
+        _ => "status-normal",
+    };
+}

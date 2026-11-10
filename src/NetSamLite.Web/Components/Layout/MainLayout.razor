@@ -1,0 +1,21 @@
+@inherits LayoutComponentBase
+
+<div class="page">
+    <nav class="top-nav">
+        <strong>NetSamLite</strong>
+        <NavLink href="devices">장치 목록</NavLink>
+        <NavLink href="software">SW 현황</NavLink>
+        <NavLink href="licensing">라이선스 현황</NavLink>
+        <NavLink href="prohibited-software">금지 SW 알림</NavLink>
+    </nav>
+
+    <main>
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

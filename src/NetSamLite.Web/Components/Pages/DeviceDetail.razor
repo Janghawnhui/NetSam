@@ -1,0 +1,55 @@
+@page "/devices/{DeviceId}"
+@using NetSamLite.Server.Devices
+@inject DeviceDirectoryService DirectoryService
+
+<PageTitle>장치 상세 - @DeviceId</PageTitle>
+
+<p><a href="devices">&larr; 장치 목록으로</a></p>
+<h1>장치 상세: @DeviceId</h1>
+
+@if (_software is null)
+{
+    <p>불러오는 중...</p>
+}
+else if (_software.Count == 0)
+{
+    <p>설치된 SW가 없습니다.</p>
+}
+else
+{
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>DisplayName</th>
+                <th>DisplayVersion</th>
+                <th>Publisher</th>
+                <th>설치일</th>
+                <th>설치 위치</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in _software)
+            {
+                <tr>
+                    <td>@item.DisplayName</td>
+                    <td>@item.DisplayVersion</td>
+                    <td>@item.Publisher</td>
+                    <td>@item.InstallDate</td>
+                    <td>@item.InstallLocation</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter]
+    public string DeviceId { get; set; } = string.Empty;
+
+    private IReadOnlyList<NetSamLite.Server.Data.Entities.InstalledSoftwareSnapshotEntity>? _software;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _software = await DirectoryService.GetInstalledSoftwareAsync(DeviceId, CancellationToken.None);
+    }
+}

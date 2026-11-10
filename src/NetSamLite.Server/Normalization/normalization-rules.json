@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "ruleGroups": [
+    {
+      "type": "exclude",
+      "rules": [
+        {
+          "id": "exclude.windows-update-kb",
+          "match": {
+            "field": "DisplayName",
+            "type": "regex",
+            "pattern": "^(Update|Security Update|Hotfix) for .*\\(KB\\d{6,7}\\)$"
+          },
+          "sourceSample": ["Update for x64-based Windows Systems (KB5001716)"],
+          "note": "KB 번호가 강한 신호라 오탐 낮음"
+        }
+      ]
+    },
+    {
+      "type": "alias",
+      "rules": [
+        {
+          "id": "alias.ms365-apps-kr",
+          "match": {
+            "field": "DisplayName",
+            "type": "regex",
+            "pattern": "^엔터프라이즈용 Microsoft 365 앱(\\s*-\\s*[a-z]{2}-[a-zA-Z]{2})?$"
+          },
+          "replaceWith": "Microsoft 365 Apps",
+          "sourceSample": ["엔터프라이즈용 Microsoft 365 앱 - ko-kr"],
+          "note": "완전일치 기반이라 오탐 0, 커버리지는 테이블 크기만큼만"
+        }
+      ]
+    },
+    {
+      "type": "productPattern",
+      "rules": [
+        {
+          "id": "product.chrome-webapp",
+          "match": {
+            "field": "Publisher",
+            "type": "exact",
+            "pattern": "Google\\Chrome"
+          },
+          "actions": [
+            { "op": "setCategory", "value": "WebApp" },
+            { "op": "setLicensable", "value": "false" }
+          ],
+          "sourceSample": ["Chrome 원격 데스크톱 (Publisher=Google\\Chrome, Version=1.0)"],
+          "note": "제품명은 그대로 두고 Category/Licensable만 태그. 샘플 2건뿐이라 표본 부족 — 추가 수집 후 재검토"
+        },
+        {
+          "id": "product.msvc-redistributable-runtime",
+          "match": {
+            "field": "DisplayName",
+            "type": "regex",
+            "pattern": "^Microsoft Visual C\\+\\+\\s+(\\d{4}|v\\d+)(\\s+(x64|x86))?\\s*Redistributable"
+          },
+          "actions": [
+            { "op": "setCategory", "value": "Runtime(무료)" },
+            { "op": "setLicensable", "value": "false" },
+            { "op": "extractAttribute", "attribute": "Architecture", "pattern": "(x64|x86)" }
+          ],
+          "sourceSample": [
+            "Microsoft Visual C++ 2010  x64 Redistributable - 10.0.40219",
+            "Microsoft Visual C++ 2008 Redistributable - x64 9.0.30729.4148",
+            "Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247"
+          ],
+          "note": "세대(연도/v14) 매핑은 의도적으로 안 함 — 10건 전부 Runtime으로 묶어 라이선스 매칭에서만 빠지고 제품명 자체는 원본 유지. .* 대신 \\s+와 명시적 토큰(연도|v숫자)으로 좁힘"
+        }
+      ]
+    },
+    {
+      "type": "commonCleanup",
+      "rules": [
+        {
+          "id": "cleanup.strip-locale-suffix",
+          "match": {
+            "field": "DisplayName",
+            "type": "regex",
+            "pattern": "\\s*-\\s*[a-z]{2}-[a-zA-Z]{2}$"
+          },
+          "replaceWith": "",
+          "sourceSample": ["엔터프라이즈용 Microsoft 365 앱 - ko-kr"],
+          "note": "별칭 테이블에 없는 제품도 로케일 접미사는 일반적으로 떼도 안전함. 로케일 코드 형태(xx-XX)가 명확해 오탐 낮음"
+        },
+        {
+          "id": "cleanup.strip-architecture-token",
+          "match": {
+            "field": "DisplayName",
+            "type": "regex",
+            "pattern": "(?i)\\s*[\\(\\[]?(x64|x86|amd64|64-?bit|32-?bit)[\\)\\]]?(?!-based)"
+          },
+          "replaceWith": "",
+          "sourceSample": [
+            "Everything 1.4.1.1032 (x64)",
+            "Notepad++ (64-bit x64)",
+            "TouchEn nxKey with E2E for 32bit"
+          ],
+          "note": "(?!-based)로 'Update for x64-based Windows Systems' 같은 제품명 일부는 보존 (단 해당 샘플은 1단계 제외 규칙에서 이미 걸러짐). MSVC 항목도 이 규칙으로 아키텍처 표기가 추가로 제거됨 — 속성 추출은 3단계에서 이미 끝났으므로 안전"
+        }
+      ]
+    }
+  ],
+  "unclassifiedPolicy": {
+    "action": "passThroughAsIs",
+    "flag": "unclassified"
+  }
+}

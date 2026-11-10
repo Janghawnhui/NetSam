@@ -1,0 +1,101 @@
+@page "/software"
+@using NetSamLite.Server.Licensing
+@inject LicenseMatchingService MatchingService
+
+<PageTitle>SW 현황</PageTitle>
+
+<h1>SW 현황</h1>
+
+@if (_rows is null)
+{
+    <p>불러오는 중...</p>
+}
+else
+{
+    <div class="summary-cards">
+        <div class="summary-card">
+            <div>전체 제품 수</div>
+            <div class="value">@_rows.Count</div>
+        </div>
+        <div class="summary-card">
+            <div>미분류 비율</div>
+            <div class="value">@_unclassifiedRatioText</div>
+        </div>
+        <div class="summary-card">
+            <div>처리 실패 건수</div>
+            <div class="value">@_failedCount</div>
+        </div>
+    </div>
+
+    <p>
+        <a href="/export/software-inventory.csv">CSV 다운로드</a>
+        &nbsp;|&nbsp;
+        구분 필터:
+        <select @bind="_filter">
+            <option value="">전체</option>
+            <option value="매칭">매칭</option>
+            <option value="라이선스미등록">라이선스 미등록</option>
+            <option value="매칭제외">매칭 제외</option>
+            <option value="미분류">미분류</option>
+        </select>
+    </p>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>제품명</th>
+                <th>구분</th>
+                <th>카테고리</th>
+                <th>설치 디바이스 수</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in FilteredRows)
+            {
+                <tr>
+                    <td>@row.ProductName</td>
+                    <td>@row.Classification</td>
+                    <td>@row.Category</td>
+                    <td>@row.InstalledCount</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private sealed record InventoryRow(string ProductName, string Classification, string? Category, int InstalledCount);
+
+    private List<InventoryRow>? _rows;
+    private int _failedCount;
+    private string _unclassifiedRatioText = "0%";
+    private string _filter = string.Empty;
+
+    private IEnumerable<InventoryRow> FilteredRows =>
+        _rows is null
+            ? []
+            : string.IsNullOrEmpty(_filter)
+                ? _rows
+                : _rows.Where(r => r.Classification == _filter);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var report = await MatchingService.BuildReportAsync(CancellationToken.None);
+        _failedCount = report.FailedCount;
+
+        var rows = new List<InventoryRow>();
+        rows.AddRange(report.Matched.Select(m => new InventoryRow(m.ProductName, "매칭", null, m.InstalledCount)));
+        rows.AddRange(report.UnlicensedProducts.Select(
+            u => new InventoryRow(u.ProductName, "라이선스미등록", null, u.InstalledCount)));
+        rows.AddRange(report.ExcludedFromLicensing.Select(
+            e => new InventoryRow(e.ProductName, "매칭제외", e.Category, e.InstalledCount)));
+        rows.AddRange(report.UnclassifiedSoftware.Select(
+            u => new InventoryRow(u.ProductName, "미분류", null, u.InstalledCount)));
+
+        _rows = rows;
+
+        var total = rows.Count;
+        var unclassifiedCount = report.UnclassifiedSoftware.Count;
+        _unclassifiedRatioText = total == 0 ? "0%" : $"{unclassifiedCount * 100.0 / total:F1}%";
+    }
+}

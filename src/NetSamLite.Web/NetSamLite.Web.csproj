@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\NetSamLite.Server\NetSamLite.Server.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 정규화 규칙은 NetSamLite.Server가 원본을 갖고 있고, Web은 같은 상대 경로로 복사만 받는다. -->
+    <None Include="..\NetSamLite.Server\Normalization\normalization-rules.json"
+          Link="Normalization\normalization-rules.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>netsamlite-web-dev</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

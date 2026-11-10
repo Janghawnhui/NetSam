@@ -1,0 +1,64 @@
+@page "/devices"
+@using NetSamLite.Server.Devices
+@inject DeviceDirectoryService DirectoryService
+
+<PageTitle>장치 목록</PageTitle>
+
+<h1>장치 목록</h1>
+
+@if (_devices is null)
+{
+    <p>불러오는 중...</p>
+}
+else if (_devices.Count == 0)
+{
+    <p>아직 수집된 장치가 없습니다.</p>
+}
+else
+{
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>컴퓨터 이름</th>
+                <th>제조사 / 모델</th>
+                <th>OS</th>
+                <th>프로세서 / 코어 수</th>
+                <th>메모리</th>
+                <th>디스크</th>
+                <th>마지막 수집 시각</th>
+                <th>설치 SW 개수</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var device in _devices)
+            {
+                <tr>
+                    <td><a href="@($"devices/{device.DeviceId}")">@device.ComputerName</a></td>
+                    <td>@device.Manufacturer / @device.Model</td>
+                    <td>@device.OperatingSystemCaption (@device.OperatingSystemVersion)</td>
+                    <td>@device.ProcessorName / @(device.ProcessorCoreCount)코어</td>
+                    <td>@FormatGigabytes(device.TotalPhysicalMemoryBytes)</td>
+                    <td>
+                        @foreach (var disk in device.Disks)
+                        {
+                            <div>@disk.Model (@FormatGigabytes(disk.SizeBytes))</div>
+                        }
+                    </td>
+                    <td>@device.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@device.InstalledSoftwareCount</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<DeviceSummary>? _devices;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _devices = await DirectoryService.ListAsync(CancellationToken.None);
+    }
+
+    private static string FormatGigabytes(long bytes) => $"{bytes / 1024.0 / 1024.0 / 1024.0:F1} GB";
+}

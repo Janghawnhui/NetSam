@@ -1,0 +1,769 @@
+{
+  "Device": {
+    "DeviceId": "d6a79f6d-6e92-48e3-a883-c6adb1ef9bbf-DESKTOP-CTHSGTP",
+    "ComputerName": "DESKTOP-CTHSGTP",
+    "Manufacturer": "System manufacturer",
+    "Model": "System Product Name",
+    "SerialNumber": "System Serial Number",
+    "ProcessorName": "AMD Ryzen 5 3500X 6-Core Processor             ",
+    "ProcessorCoreCount": 6,
+    "OperatingSystemCaption": "Microsoft Windows 11 Pro",
+    "OperatingSystemVersion": "10.0.26200",
+    "OperatingSystemBuildNumber": "26200",
+    "TotalPhysicalMemoryBytes": 17179869184,
+    "Disks": [
+      {
+        "Model": "SAMSUNG MZVLB512HAJQ-00000",
+        "SizeBytes": 512105932800
+      },
+      {
+        "Model": "CT250MX500SSD1",
+        "SizeBytes": 250056737280
+      }
+    ]
+  },
+  "InstalledSoftware": [
+    {
+      "DisplayName": "Android Studio",
+      "DisplayVersion": "2024.3",
+      "Publisher": "Google LLC",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Apache Tomcat 9.0 Tomcat9 (remove only)",
+      "DisplayVersion": "9.0.97",
+      "Publisher": "The Apache Software Foundation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Windows \uB4DC\uB77C\uC774\uBC84 \uD328\uD0A4\uC9C0 - Realtek Net  (09/28/2020 10.045.0928.2020)",
+      "DisplayVersion": "09/28/2020 10.045.0928.2020",
+      "Publisher": "Realtek",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Docker Desktop",
+      "DisplayVersion": "4.40.0",
+      "Publisher": "Docker Inc.",
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files\\Docker\\Docker"
+    },
+    {
+      "DisplayName": "Everything 1.4.1.1032 (x64)",
+      "DisplayVersion": "1.4.1.1032",
+      "Publisher": "voidtools",
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files\\Everything"
+    },
+    {
+      "DisplayName": "Git",
+      "DisplayVersion": "2.44.0",
+      "Publisher": "The Git Development Community",
+      "InstallDate": "20240307",
+      "InstallLocation": "C:\\Program Files\\Git\\"
+    },
+    {
+      "DisplayName": "HelpU",
+      "DisplayVersion": null,
+      "Publisher": "HelpU, Inc.",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "MarkAny WebDRM",
+      "DisplayVersion": "2.5.4.18",
+      "Publisher": "MarkAny Inc.",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Apache NetBeans IDE 21",
+      "DisplayVersion": "21",
+      "Publisher": "Apache NetBeans",
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files\\NetBeans-21"
+    },
+    {
+      "DisplayName": "Notepad\u002B\u002B (64-bit x64)",
+      "DisplayVersion": "8.6.4",
+      "Publisher": "Notepad\u002B\u002B Team",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "\uC5D4\uD130\uD504\uB77C\uC774\uC988\uC6A9 Microsoft 365 \uC571 - ko-kr",
+      "DisplayVersion": "16.0.20527.20150",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files\\Microsoft Office"
+    },
+    {
+      "DisplayName": "\uC0AC\uC9C4",
+      "DisplayVersion": "26.198.1011.0006",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Microsoft OneDrive",
+      "DisplayVersion": "26.198.1011.0006",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Riot Vanguard",
+      "DisplayVersion": null,
+      "Publisher": "Riot Games, Inc.",
+      "InstallDate": "1788091348",
+      "InstallLocation": "C:\\Program Files\\Riot Vanguard"
+    },
+    {
+      "DisplayName": "Palworld / \uD330\uC6D4\uB4DC",
+      "DisplayVersion": null,
+      "Publisher": "Pocketpair",
+      "InstallDate": null,
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "The Artisan of Glimmith",
+      "DisplayVersion": null,
+      "Publisher": "Lunarch Studios",
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\The Artisan of Glimmith"
+    },
+    {
+      "DisplayName": "Oracle VirtualBox 7.2.6",
+      "DisplayVersion": "7.2.6",
+      "Publisher": "Oracle and/or its affiliates",
+      "InstallDate": "20260309",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "AhnLab Safe Transaction",
+      "DisplayVersion": "1.18.1.1997",
+      "Publisher": "AhnLab, Inc.",
+      "InstallDate": "20240221",
+      "InstallLocation": "C:\\Program Files\\AhnLab\\Safe Transaction"
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B 2010  x64 Redistributable - 10.0.40219",
+      "DisplayVersion": "10.0.40219",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240206",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Microsoft Update Health Tools",
+      "DisplayVersion": "3.74.0.0",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240129",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Microsoft Windows Application Compatibility Fix Database",
+      "DisplayVersion": null,
+      "Publisher": null,
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Veraport(\uBCF4\uC548\uBAA8\uB4C8 \uAD00\uB9AC \uD504\uB85C\uADF8\uB7A8) G3 - 4,0,0,0 - x64",
+      "DisplayVersion": "4,0,0,0",
+      "Publisher": "Wizvera",
+      "InstallDate": "20250524",
+      "InstallLocation": "C:\\Program Files\\Wizvera\\Veraport20\\"
+    },
+    {
+      "DisplayName": "SQL Server 2019\uC6A9 Microsoft System CLR Types",
+      "DisplayVersion": "15.0.2000.5",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240424",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Java(TM) SE Development Kit 21.0.2 (64-bit)",
+      "DisplayVersion": "21.0.2.0",
+      "Publisher": "Oracle Corporation",
+      "InstallDate": "20240306",
+      "InstallLocation": "C:\\Program Files\\Java\\jdk-21\\"
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B 2008 Redistributable - x64 9.0.30729.4148",
+      "DisplayVersion": "9.0.30729.4148",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20260131",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Microsoft Visual Studio Installer",
+      "DisplayVersion": "3.9.2180.11832",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240424",
+      "InstallLocation": "\u0022C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\u0022"
+    },
+    {
+      "DisplayName": "Node.js",
+      "DisplayVersion": "22.12.0",
+      "Publisher": "Node.js Foundation",
+      "InstallDate": "20241210",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Java(TM) SE Development Kit 25.0.2 (64-bit)",
+      "DisplayVersion": "25.0.2.0",
+      "Publisher": "Oracle Corporation",
+      "InstallDate": "20260305",
+      "InstallLocation": "C:\\Program Files\\Java\\jdk-25.0.2\\"
+    },
+    {
+      "DisplayName": "Hanword HWP document converter for Microsoft Word (x64)",
+      "DisplayVersion": "15.0.4454.1506",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240411",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Microsoft Teams Meeting Add-in for Microsoft Office",
+      "DisplayVersion": "1.26.20101",
+      "Publisher": "Microsoft",
+      "InstallDate": "20260830",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Java(TM) SE Development Kit 22.0.2 (64-bit)",
+      "DisplayVersion": "22.0.2.0",
+      "Publisher": "Oracle Corporation",
+      "InstallDate": "20241129",
+      "InstallLocation": "C:\\Program Files\\Java\\jdk-22\\"
+    },
+    {
+      "DisplayName": "Adobe Acrobat (64-bit)",
+      "DisplayVersion": "26.003.22075",
+      "Publisher": "Adobe",
+      "InstallDate": "20261108",
+      "InstallLocation": "C:\\Program Files\\Adobe\\Acrobat DC\\"
+    },
+    {
+      "DisplayName": "NVIDIA \uADF8\uB798\uD53D \uB4DC\uB77C\uC774\uBC84 610.88",
+      "DisplayVersion": "610.88",
+      "Publisher": "NVIDIA Corporation",
+      "InstallDate": "20261017",
+      "InstallLocation": "C:\\Program Files\\NVIDIA Corporation\\Installer2\\Display.Driver.{1354D683-BA93-4D0D-97C2-BF7C676E5861}"
+    },
+    {
+      "DisplayName": "NVIDIA GeForce Experience 3.27.0.120",
+      "DisplayVersion": "3.27.0.120",
+      "Publisher": "NVIDIA Corporation",
+      "InstallDate": "20240126",
+      "InstallLocation": "C:\\Program Files\\NVIDIA Corporation\\Installer2\\Display.GFExperience.{8F87252F-C5E9-45FB-A841-E478EF6EA000}"
+    },
+    {
+      "DisplayName": "NVIDIA PhysX \uC2DC\uC2A4\uD15C \uC18C\uD504\uD2B8\uC6E8\uC5B4 9.21.0713",
+      "DisplayVersion": "9.21.0713",
+      "Publisher": "NVIDIA Corporation",
+      "InstallDate": "20240126",
+      "InstallLocation": "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX"
+    },
+    {
+      "DisplayName": "NVIDIA FrameView SDK 1.3.8513.32290073",
+      "DisplayVersion": "1.3.8513.32290073",
+      "Publisher": "NVIDIA Corporation",
+      "InstallDate": "20240126",
+      "InstallLocation": "C:\\Program Files\\NVIDIA Corporation\\FrameViewSDK"
+    },
+    {
+      "DisplayName": "Update for x64-based Windows Systems (KB5001716)",
+      "DisplayVersion": "8.94.0.0",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20250701",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "MySQL Server 8.0",
+      "DisplayVersion": "8.0.41",
+      "Publisher": "Oracle Corporation",
+      "InstallDate": "20250607",
+      "InstallLocation": "C:\\Program Files\\MySQL\\MySQL Server 8.0\\"
+    },
+    {
+      "DisplayName": "Java(TM) SE Development Kit 17.0.12 (64-bit)",
+      "DisplayVersion": "17.0.12.0",
+      "Publisher": "Oracle Corporation",
+      "InstallDate": "20250523",
+      "InstallLocation": "C:\\Program Files\\Java\\jdk-17\\"
+    },
+    {
+      "DisplayName": "PuTTY release 0.83 (64-bit)",
+      "DisplayVersion": "0.83.0.0",
+      "Publisher": "Simon Tatham",
+      "InstallDate": "20260210",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Adobe Genuine Service",
+      "DisplayVersion": "10.1.0.33",
+      "Publisher": "Adobe Inc.",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "\uC54C\uB9E4\uB2C8\uC800",
+      "DisplayVersion": "1.16",
+      "Publisher": "ESTsoft Corp.",
+      "InstallDate": "20260222",
+      "InstallLocation": "C:\\Program Files (x86)\\ESTsoft\\ALToolsManager\\"
+    },
+    {
+      "DisplayName": "\uC54C\uC9D1 12.36",
+      "DisplayVersion": "12.36",
+      "Publisher": "ESTsoft Corp.",
+      "InstallDate": "20260613",
+      "InstallLocation": "C:\\Program Files (x86)\\ESTsoft\\ALZip\\"
+    },
+    {
+      "DisplayName": "AnySign4PC 1.1.4.4",
+      "DisplayVersion": "1.1.4.4",
+      "Publisher": "HANCOM WITH Inc.",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Battle.net",
+      "DisplayVersion": null,
+      "Publisher": "Blizzard Entertainment",
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files (x86)\\Battle.net"
+    },
+    {
+      "DisplayName": "Visual Studio Community 2022",
+      "DisplayVersion": "17.9.6",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240424",
+      "InstallLocation": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community"
+    },
+    {
+      "DisplayName": "Google Chrome",
+      "DisplayVersion": "157.0.8103.39",
+      "Publisher": "Google LLC",
+      "InstallDate": "20261109",
+      "InstallLocation": "C:\\Program Files\\Google\\Chrome\\Application"
+    },
+    {
+      "DisplayName": "Google Cloud SDK",
+      "DisplayVersion": null,
+      "Publisher": "Google LLC",
+      "InstallDate": null,
+      "InstallLocation": "\u0022C:\\Program Files (x86)\\Google\\Cloud SDK\u0022"
+    },
+    {
+      "DisplayName": "I-Defense Control - \uAC1C\uC778 \uBC29\uD654\uBCBD",
+      "DisplayVersion": null,
+      "Publisher": "Kings Information \u0026 Network",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "IntelliJ IDEA 2025.1",
+      "DisplayVersion": "251.23774.435",
+      "Publisher": "JetBrains s.r.o.",
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files\\JetBrains\\IntelliJ IDEA 2025.1"
+    },
+    {
+      "DisplayName": "IPinside LWS Agent",
+      "DisplayVersion": "3.0.0.24",
+      "Publisher": "interezen",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "\uCE74\uCE74\uC624\uD1A1",
+      "DisplayVersion": "26.9.1.5339",
+      "Publisher": "Kakao Corp.",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Kings Online Security",
+      "DisplayVersion": "1.3.1.5",
+      "Publisher": "Kings Information \u0026 Network Co., Ltd.",
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files (x86)\\Kings Online Security"
+    },
+    {
+      "DisplayName": "Copilot",
+      "DisplayVersion": "157.0.4341.42",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20261107",
+      "InstallLocation": "C:\\Program Files (x86)\\Microsoft\\Copilot\\Application"
+    },
+    {
+      "DisplayName": "Microsoft Edge",
+      "DisplayVersion": "157.0.4341.42",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20261107",
+      "InstallLocation": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application"
+    },
+    {
+      "DisplayName": "nProtect Online Security V1.0(PFS)",
+      "DisplayVersion": "2025.3.19.1",
+      "Publisher": "INCA Internet Co., Ltd.",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "SKBSpeedMeter 11.0.0.1",
+      "DisplayVersion": null,
+      "Publisher": "SK\uBE0C\uB85C\uB4DC\uBC34\uB4DC, Inc.",
+      "InstallDate": "20240826",
+      "InstallLocation": "C:\\ProgramData\\SKBInternetSpeed\\"
+    },
+    {
+      "DisplayName": "\uC2A4\uD0C0\uD06C\uB798\uD504\uD2B8",
+      "DisplayVersion": null,
+      "Publisher": "Blizzard Entertainment",
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files (x86)\\StarCraft"
+    },
+    {
+      "DisplayName": "Steam",
+      "DisplayVersion": "2.10.91.91",
+      "Publisher": "Valve Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "TouchEn nxKey with E2E for 32bit",
+      "DisplayVersion": "1.0.0.90",
+      "Publisher": "RaonSecure Co., Ltd.",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B 2013 Redistributable (x64) - 12.0.30501",
+      "DisplayVersion": "12.0.30501.0",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B v14 Redistributable (x64) - 14.51.36247",
+      "DisplayVersion": "14.51.36247.0",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Microsoft Windows Desktop Runtime - 6.0.5 (x64)",
+      "DisplayVersion": "6.0.5.31215",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "vs_CoreEditorFonts",
+      "DisplayVersion": "17.7.40001",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240424",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B 2012 Redistributable (x86) - 11.0.61030",
+      "DisplayVersion": "11.0.61030.0",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "REPORTX",
+      "DisplayVersion": null,
+      "Publisher": "DigitalZone Co., Ltd",
+      "InstallDate": "20250905",
+      "InstallLocation": "C:\\ProgramData\\DAMON\\REPORTX\\"
+    },
+    {
+      "DisplayName": "Wondershare Helper Compact 2.6.0",
+      "DisplayVersion": "2.6.0",
+      "Publisher": "Wondershare",
+      "InstallDate": "20260131",
+      "InstallLocation": "C:\\Program Files (x86)\\Common Files\\Wondershare\\Wondershare Helper Compact\\"
+    },
+    {
+      "DisplayName": "Certpia Viewer",
+      "DisplayVersion": "1.0.8.4",
+      "Publisher": "I\u0026Tech, Inc.",
+      "InstallDate": "20240227",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Roaming\\Certpia\\"
+    },
+    {
+      "DisplayName": "Windows Software Development Kit - Windows 10.0.22621.3233",
+      "DisplayVersion": "10.1.22621.3233",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "MySQL Installer",
+      "DisplayVersion": "1.6.13.0",
+      "Publisher": "Oracle Corporation",
+      "InstallDate": "20250607",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "\uD55C\uCEF4\uC624\uD53C\uC2A4 2024 \uBDF0\uC5B4",
+      "DisplayVersion": "13.0.0.226",
+      "Publisher": "Hancom",
+      "InstallDate": "20240925",
+      "InstallLocation": "C:\\Program Files (x86)\\Hnc\\Office 2024 Viewer\\"
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B 2008 Redistributable - x86 9.0.30729",
+      "DisplayVersion": "9.0.30729",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240826",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "WIZVERA Process Manager 1,0,6,1",
+      "DisplayVersion": "1,0,6,1",
+      "Publisher": "WIZVERA",
+      "InstallDate": "20250524",
+      "InstallLocation": "C:\\Program Files (x86)\\Wizvera\\Common\\wpmsvc\\"
+    },
+    {
+      "DisplayName": "DAREU Driver",
+      "DisplayVersion": "1.5.7.26",
+      "Publisher": "Copyright \u00A9 2012-2025 DAREU All rights reserved",
+      "InstallDate": "20260118",
+      "InstallLocation": "C:\\Program Files (x86)\\DAREU_Driver\\"
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B v14 Redistributable (x86) - 14.51.36247",
+      "DisplayVersion": "14.51.36247.0",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B 2012 Redistributable (x64) - 11.0.61030",
+      "DisplayVersion": "11.0.61030.0",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Chrome Remote Desktop Host",
+      "DisplayVersion": "157.0.8103.41",
+      "Publisher": "Google LLC",
+      "InstallDate": "20261104",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Python Launcher",
+      "DisplayVersion": "3.14.3150.0",
+      "Publisher": "Python Software Foundation",
+      "InstallDate": "20260324",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Microsoft .NET SDK 10.0.403 (x64)",
+      "DisplayVersion": "10.4.326.52412",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20261110",
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B 2010  x86 Redistributable - 10.0.40219",
+      "DisplayVersion": "10.0.40219",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240206",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Windows SDK AddOn",
+      "DisplayVersion": "10.1.0.0",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20240424",
+      "InstallLocation": ""
+    },
+    {
+      "DisplayName": "Microsoft Visual C\u002B\u002B 2013 Redistributable (x86) - 12.0.30501",
+      "DisplayVersion": "12.0.30501.0",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "\uD53D\uD53D",
+      "DisplayVersion": "7.5.0",
+      "Publisher": "NGWIN",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Antigravity 2.0.6",
+      "DisplayVersion": "2.0.6",
+      "Publisher": "Google",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "YouTube",
+      "DisplayVersion": "1.0",
+      "Publisher": "Google\\Chrome",
+      "InstallDate": "20240126",
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "AdvancedRestClient 17.0.9",
+      "DisplayVersion": "17.0.9",
+      "Publisher": "Pawel Uchida-Psztyc",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Discord",
+      "DisplayVersion": "1.0.9267",
+      "Publisher": "Discord Inc.",
+      "InstallDate": "20240626",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Local\\Discord"
+    },
+    {
+      "DisplayName": "Chrome \uC6D0\uACA9 \uB370\uC2A4\uD06C\uD1B1",
+      "DisplayVersion": "1.0",
+      "Publisher": "Google\\Chrome",
+      "InstallDate": "20261102",
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "GitHub Desktop",
+      "DisplayVersion": "3.3.11",
+      "Publisher": "GitHub, Inc.",
+      "InstallDate": "20240313",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Local\\GitHubDesktop"
+    },
+    {
+      "DisplayName": "H2",
+      "DisplayVersion": null,
+      "Publisher": null,
+      "InstallDate": null,
+      "InstallLocation": "C:\\Program Files (x86)\\H2"
+    },
+    {
+      "DisplayName": "iniLINE CrossEX Service",
+      "DisplayVersion": "1.0.2.17",
+      "Publisher": "iniLINE Co., Ltd.",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "jq",
+      "DisplayVersion": "1.8.2",
+      "Publisher": "jqlang",
+      "InstallDate": "20260930",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Local\\Microsoft\\WinGet\\Packages\\jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe"
+    },
+    {
+      "DisplayName": "\uB124\uC774\uBC84 \uB77C\uC774\uBE0C \uC2A4\uD2B8\uB9AC\uBC0D \uCEE4\uB125\uD130",
+      "DisplayVersion": "2.0.0.13",
+      "Publisher": "NAVER Corp.",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Postman x64 11.99.0",
+      "DisplayVersion": "11.99.0",
+      "Publisher": "Postman",
+      "InstallDate": "20260922",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Local\\Postman"
+    },
+    {
+      "DisplayName": "League of Legends",
+      "DisplayVersion": null,
+      "Publisher": "Riot Games, Inc",
+      "InstallDate": null,
+      "InstallLocation": "C:/Riot Games/League of Legends"
+    },
+    {
+      "DisplayName": "Riot Client ",
+      "DisplayVersion": null,
+      "Publisher": "Riot Games, Inc",
+      "InstallDate": null,
+      "InstallLocation": "C:/Riot Games/Riot Client/"
+    },
+    {
+      "DisplayName": "Teamfight Tactics",
+      "DisplayVersion": null,
+      "Publisher": "Riot Games, Inc",
+      "InstallDate": null,
+      "InstallLocation": "C:/Riot Games/Teamfight Tactics/Live"
+    },
+    {
+      "DisplayName": "TreeSize Free V4.8.1",
+      "DisplayVersion": "4.8.1",
+      "Publisher": "JAM Software",
+      "InstallDate": "20260309",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Local\\Programs\\JAM Software\\TreeSize Free\\"
+    },
+    {
+      "DisplayName": "Wondershare Filmora 15(Build 15.1.2.17051)",
+      "DisplayVersion": null,
+      "Publisher": "Wondershare Software",
+      "InstallDate": "20260131",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\LocalWondershare\\Wondershare Filmora\\"
+    },
+    {
+      "DisplayName": "Wondershare NativePush(Build 1.1.1.0)",
+      "DisplayVersion": null,
+      "Publisher": "Wondershare Software",
+      "InstallDate": "20260131",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Local\\Wondershare\\Wondershare NativePush\\"
+    },
+    {
+      "DisplayName": "Python 3.11.8 (64-bit)",
+      "DisplayVersion": "3.11.8150.0",
+      "Publisher": "Python Software Foundation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Telegram Desktop",
+      "DisplayVersion": "7.3.3",
+      "Publisher": "Telegram FZ-LLC",
+      "InstallDate": "20261101",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Roaming\\Telegram Desktop\\"
+    },
+    {
+      "DisplayName": "Microsoft Visual Studio Code (User)",
+      "DisplayVersion": "1.145.2",
+      "Publisher": "Microsoft Corporation",
+      "InstallDate": "20261109",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Local\\Programs\\Microsoft VS Code\\"
+    },
+    {
+      "DisplayName": "Antigravity (User)",
+      "DisplayVersion": "1.14.2",
+      "Publisher": "Google",
+      "InstallDate": "20260114",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Local\\Programs\\Antigravity\\"
+    },
+    {
+      "DisplayName": "Python 3.14.3 (64-bit)",
+      "DisplayVersion": "3.14.3150.0",
+      "Publisher": "Python Software Foundation",
+      "InstallDate": null,
+      "InstallLocation": null
+    },
+    {
+      "DisplayName": "Cursor (User)",
+      "DisplayVersion": "3.29.15",
+      "Publisher": "Anysphere",
+      "InstallDate": "20261109",
+      "InstallLocation": "C:\\Users\\hani\\AppData\\Local\\Programs\\cursor\\"
+    }
+  ]
+}
