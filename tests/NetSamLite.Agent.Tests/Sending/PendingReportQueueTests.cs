@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -216,5 +217,54 @@ public sealed class PendingReportQueueTests : IDisposable
         await _sut.EnqueueAsync(CreateReport("DEV-1"), CancellationToken.None);
 
         Directory.GetFiles(_queueDirectory, "*.tmp").Should().BeEmpty();
+    }
+
+    // ----- Report=null 역직렬화 가드 -----
+
+    [Fact]
+    public async Task ListPendingAsync_CurrentEnvelopeFormat_ReturnsReportWithFailureCount()
+    {
+        await _sut.EnqueueAsync(CreateReport("DEV-1"), CancellationToken.None);
+        var entry = (await _sut.ListPendingAsync(CancellationToken.None)).Single();
+        await _sut.RecordFailureAsync(entry.Id, CancellationToken.None);
+
+        var pending = await _sut.ListPendingAsync(CancellationToken.None);
+
+        pending.Should().ContainSingle();
+        pending[0].Report.Device.DeviceId.Should().Be("DEV-1");
+        pending[0].FailureCount.Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData("legacy")]
+    [InlineData("{}")]
+    [InlineData("{\"FailureCount\":2}")]
+    public async Task ListPendingAsync_LegacyFormatFileWithoutEnvelope_SkipsItButReturnsOtherValidReports(
+        string badFileContentKind)
+    {
+        await _sut.EnqueueAsync(CreateReport("DEV-GOOD"), CancellationToken.None);
+        var badContent = badFileContentKind == "legacy"
+            ? JsonSerializer.Serialize(CreateReport("DEV-LEGACY"))
+            : badFileContentKind;
+        var badPath = Path.Combine(_queueDirectory, "20200101T000000000Z_legacy.json");
+        await File.WriteAllTextAsync(badPath, badContent);
+
+        var pending = await _sut.ListPendingAsync(CancellationToken.None);
+
+        pending.Should().ContainSingle();
+        pending[0].Report.Device.DeviceId.Should().Be("DEV-GOOD");
+    }
+
+    [Fact]
+    public async Task RecordFailureAsync_FileHasNoReportInEnvelope_ReturnsTrueAndRemovesFile()
+    {
+        Directory.CreateDirectory(_queueDirectory);
+        var path = Path.Combine(_queueDirectory, "20200101T000000000Z_empty.json");
+        await File.WriteAllTextAsync(path, "{}");
+
+        var gaveUp = await _sut.RecordFailureAsync(path, CancellationToken.None);
+
+        gaveUp.Should().BeTrue();
+        File.Exists(path).Should().BeFalse();
     }
 }

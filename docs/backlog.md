@@ -11,13 +11,6 @@
 
 ## 코드 품질 (Phase 6)
 
-### 구버전 큐 파일 포맷을 읽을 때 조용히 null Report로 역직렬화됨
-- **위치**: `src/NetSamLite.Agent/Sending/PendingReportQueue.cs` (`ReadEnvelopeAsync`)
-- **현상**: 큐 파일을 `InventoryReport`에서 `QueuedReportEnvelope(FailureCount, Report)` 래퍼로 바꿨는데, 구버전 포맷(래퍼 없이 `InventoryReport`를 바로 직렬화한 파일)을 `JsonSerializer.Deserialize<QueuedReportEnvelope>`로 읽으면 System.Text.Json이 예외 없이 `Report=null`인 객체를 만들어낸다. 이게 "깨진 파일" 경로로 안 빠지고 정상 항목처럼 흘러가 `HttpInventorySender`가 null 바디를 서버에 POST하게 됨 — 결국 `MaxQueueSendFailures`로 dead-letter 되긴 하지만 그 전까지 쓸모없는 재시도가 몇 번 낭비됨.
-- **지금 안 고치는 이유**: 아직 실제 배포 전이라 "구버전 큐 파일"이 실제로 존재할 상황이 없음(이 프로젝트는 운영 중인 인스턴스가 없어 포맷 변경으로 인한 하위호환 문제가 당장 발생할 수 없음).
-- **나중에 고려할 방향**: `ReadEnvelopeAsync`에서 역직렬화 후 `envelope.Report is null`이면 "손상된 파일"과 동일하게 즉시 삭제/dead-letter 처리하는 가드 추가.
-- **기록일**: 2026-11-10 (Phase 6 code-reviewer 리뷰에서 🟡로 지적됨)
-
 ### `failed/`로 옮기는 과정이 원자적이지 않음(쓰기+삭제 2단계)
 - **위치**: `src/NetSamLite.Agent/Sending/PendingReportQueue.cs` (`RecordFailureAsync`)
 - **현상**: `MaxQueueSendFailures`에 도달한 리포트를 `failed/`로 옮길 때 "새 위치에 쓰기(`WriteEnvelopeAsync`) → 원본 삭제(`RemoveQuietly`)" 순서로 진행된다. 그 사이 프로세스가 죽으면 같은 리포트가 `queue/`와 `failed/` 양쪽에 동시에 남을 수 있음(유실은 아니고 재시작 후 큐 쪽 사본이 한 번 더 전송 시도되는 중복 가능성만).
@@ -105,3 +98,14 @@
 - **왜 지금은 괜찮은가**: SQLite는 컬럼 길이 제약이 없어 문제가 안 됨.
 - **왜 SQL Server 전환 시 반드시 고쳐야 하는가**: SQL Server로 옮기면 길이 미지정 `string` 컬럼이 `nvarchar(max)`로 매핑되는데, `nvarchar(max)` 컬럼에는 일반 B-tree 인덱스를 걸 수 없어 `HasIndex(l => l.ProductName)`가 마이그레이션/인덱스 생성 단계에서 그대로 깨진다. **SQLite → SQL Server 전환 작업을 시작하기 전에 반드시** `ProductName`/`LicenseType`에 적정 길이(예: 200자)를 지정해야 함.
 - **기록일**: 2026-11-10 (Phase 4 code-reviewer 리뷰에서 🟡로 지적됨)
+
+## 해결됨
+
+### 구버전 큐 파일 포맷을 읽을 때 조용히 null Report로 역직렬화됨
+- **위치**: `src/NetSamLite.Agent/Sending/PendingReportQueue.cs` (`ReadEnvelopeAsync`)
+- **현상**: 큐 파일을 `InventoryReport`에서 `QueuedReportEnvelope(FailureCount, Report)` 래퍼로 바꿨는데, 구버전 포맷(래퍼 없이 `InventoryReport`를 바로 직렬화한 파일)을 `JsonSerializer.Deserialize<QueuedReportEnvelope>`로 읽으면 System.Text.Json이 예외 없이 `Report=null`인 객체를 만들어낸다. 이게 "깨진 파일" 경로로 안 빠지고 정상 항목처럼 흘러가 `HttpInventorySender`가 null 바디를 서버에 POST하게 됨 — 결국 `MaxQueueSendFailures`로 dead-letter 되긴 하지만 그 전까지 쓸모없는 재시도가 몇 번 낭비됨.
+- **기록일**: 2026-11-10 (Phase 6 code-reviewer 리뷰에서 🟡로 지적됨)
+- **해결일**: 2026-11-11
+- **브랜치**: `auto/2026-11-11-queue-envelope-null-guard`
+- **기획서**: `docs/specs/2026-11-11-queue-envelope-null-guard.md`
+- **해결 방법**: `QueuedReportEnvelope.Report`를 `InventoryReport?`로 바꾸고, `ReadEnvelopeAsync`에서 역직렬화 후 `Report`가 null이면 "읽을 수 없는 파일"과 동일하게 경고 로그를 남기고 건너뛰도록 가드를 추가함.
