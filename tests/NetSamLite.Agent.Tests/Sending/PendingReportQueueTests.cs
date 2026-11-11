@@ -147,6 +147,73 @@ public sealed class PendingReportQueueTests : IDisposable
         File.Exists(corruptPath).Should().BeFalse();
     }
 
+    // ----- failed/ 이동 원자화 (File.Move 한 번) -----
+
+    [Fact]
+    public async Task RecordFailureAsync_ReachesMaxFailures_MovedFileKeepsReportAndFinalFailureCount()
+    {
+        const int maxFailures = 2;
+        var options = Options.Create(
+            new AgentOptions { QueueDirectory = _queueDirectory, MaxQueueSendFailures = maxFailures });
+        var sut = new PendingReportQueue(options, NullLogger<PendingReportQueue>.Instance);
+        await sut.EnqueueAsync(CreateReport("DEV-DEAD"), CancellationToken.None);
+        var entry = (await sut.ListPendingAsync(CancellationToken.None)).Single();
+
+        await sut.RecordFailureAsync(entry.Id, CancellationToken.None);
+        var gaveUp = await sut.RecordFailureAsync(entry.Id, CancellationToken.None);
+
+        gaveUp.Should().BeTrue();
+        (await sut.ListPendingAsync(CancellationToken.None)).Should().BeEmpty();
+        Directory.GetFiles(_queueDirectory, "*.json").Should().BeEmpty();
+        var failedDirectory = Path.Combine(_queueDirectory, "failed");
+        var failedFile = Directory.GetFiles(failedDirectory, "*.json").Single();
+        var json = await File.ReadAllTextAsync(failedFile);
+        var envelope = JsonSerializer.Deserialize<QueuedReportEnvelope>(json);
+        envelope!.Report!.Device.DeviceId.Should().Be("DEV-DEAD");
+        envelope.FailureCount.Should().Be(maxFailures);
+        Directory.GetFiles(failedDirectory, "*.tmp").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RecordFailureAsync_FailedFolderAlreadyHasFileWithSameName_OverwritesItWithoutThrowing()
+    {
+        var options = Options.Create(
+            new AgentOptions { QueueDirectory = _queueDirectory, MaxQueueSendFailures = 1 });
+        var sut = new PendingReportQueue(options, NullLogger<PendingReportQueue>.Instance);
+        await sut.EnqueueAsync(CreateReport("DEV-NEW"), CancellationToken.None);
+        var entry = (await sut.ListPendingAsync(CancellationToken.None)).Single();
+        var failedDirectory = Path.Combine(_queueDirectory, "failed");
+        Directory.CreateDirectory(failedDirectory);
+        var preExistingPath = Path.Combine(failedDirectory, Path.GetFileName(entry.Id));
+        await File.WriteAllTextAsync(preExistingPath, "{}");
+
+        var gaveUp = await sut.RecordFailureAsync(entry.Id, CancellationToken.None);
+
+        gaveUp.Should().BeTrue();
+        Directory.GetFiles(_queueDirectory, "*.json").Should().BeEmpty();
+        var failedFile = Directory.GetFiles(failedDirectory, "*.json").Should().ContainSingle().Subject;
+        var json = await File.ReadAllTextAsync(failedFile);
+        var envelope = JsonSerializer.Deserialize<QueuedReportEnvelope>(json);
+        envelope!.Report!.Device.DeviceId.Should().Be("DEV-NEW");
+        envelope.FailureCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RecordFailureAsync_IdFileDoesNotExist_ReturnsTrueAndCreatesNothingInFailedFolder()
+    {
+        Directory.CreateDirectory(_queueDirectory);
+        var missingPath = Path.Combine(_queueDirectory, "20200101T000000000Z_missing.json");
+
+        var gaveUp = await _sut.RecordFailureAsync(missingPath, CancellationToken.None);
+
+        gaveUp.Should().BeTrue();
+        var failedDirectory = Path.Combine(_queueDirectory, "failed");
+        if (Directory.Exists(failedDirectory))
+        {
+            Directory.GetFiles(failedDirectory, "*.json").Should().BeEmpty();
+        }
+    }
+
     // ----- MaxQueuedReports (수정 3) -----
 
     [Fact]

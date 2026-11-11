@@ -11,12 +11,6 @@
 
 ## 코드 품질 (Phase 6)
 
-### `failed/`로 옮기는 과정이 원자적이지 않음(쓰기+삭제 2단계)
-- **위치**: `src/NetSamLite.Agent/Sending/PendingReportQueue.cs` (`RecordFailureAsync`)
-- **현상**: `MaxQueueSendFailures`에 도달한 리포트를 `failed/`로 옮길 때 "새 위치에 쓰기(`WriteEnvelopeAsync`) → 원본 삭제(`RemoveQuietly`)" 순서로 진행된다. 그 사이 프로세스가 죽으면 같은 리포트가 `queue/`와 `failed/` 양쪽에 동시에 남을 수 있음(유실은 아니고 재시작 후 큐 쪽 사본이 한 번 더 전송 시도되는 중복 가능성만).
-- **해결 방법**: 같은 볼륨 안에서는 `File.Move`가 원자적이므로, "쓰기+삭제" 대신 `File.Move(id, failedPath)` 한 번으로 바꾸면 이 틈 자체가 없어짐 — FailureCount를 갱신한 새 내용을 써야 하니, temp 파일에 갱신된 내용을 쓴 뒤 그 temp 파일을 바로 `failedPath`로 `File.Move`하면 됨(원본 `id` 파일은 그 과정에서 안 건드리고 마지막에 한 번만 지우는 대신, 처음부터 `id` 위치가 아니라 temp 위치에만 쓰고 거기서 곧장 `failedPath`로 이동).
-- **기록일**: 2026-11-10 (Phase 6 code-reviewer 리뷰에서 🟡로 지적됨)
-
 ### `PendingReportQueue`의 `Id`가 사실 파일 경로인데 이름이 추상적
 - **위치**: `src/NetSamLite.Agent/Sending/PendingReportQueue.cs` (`PendingReportEntry.Id`, `RemoveAsync`/`RecordFailureAsync`의 `id` 매개변수)
 - **현상**: `ListPendingAsync`가 반환하는 `Id`는 실제로는 큐 파일의 절대경로이고, `RemoveAsync`/`RecordFailureAsync`도 그 값을 그대로 `File.Exists`/`File.Delete`/`File.Move`에 쓴다. 호출부(`ReportDeliveryService`)가 "이게 파일 경로"라는 구현 세부사항에 암묵적으로 의존하게 됨.
@@ -109,3 +103,12 @@
 - **브랜치**: `auto/2026-11-11-queue-envelope-null-guard`
 - **기획서**: `docs/specs/2026-11-11-queue-envelope-null-guard.md`
 - **해결 방법**: `QueuedReportEnvelope.Report`를 `InventoryReport?`로 바꾸고, `ReadEnvelopeAsync`에서 역직렬화 후 `Report`가 null이면 "읽을 수 없는 파일"과 동일하게 경고 로그를 남기고 건너뛰도록 가드를 추가함.
+
+### `failed/`로 옮기는 과정이 원자적이지 않음(쓰기+삭제 2단계)
+- **위치**: `src/NetSamLite.Agent/Sending/PendingReportQueue.cs` (`RecordFailureAsync`)
+- **현상**: `MaxQueueSendFailures`에 도달한 리포트를 `failed/`로 옮길 때 "새 위치에 쓰기(`WriteEnvelopeAsync`) → 원본 삭제(`RemoveQuietly`)" 순서로 진행된다. 그 사이 프로세스가 죽으면 같은 리포트가 `queue/`와 `failed/` 양쪽에 동시에 남을 수 있음(유실은 아니고 재시작 후 큐 쪽 사본이 한 번 더 전송 시도되는 중복 가능성만).
+- **기록일**: 2026-11-10 (Phase 6 code-reviewer 리뷰에서 🟡로 지적됨)
+- **해결일**: 2026-11-11
+- **브랜치**: `auto/2026-11-11-failed-folder-atomic-move`
+- **기획서**: `docs/specs/2026-11-11-failed-folder-atomic-move.md`
+- **해결 방법**: dead-letter 분기를 "사본 쓰기 → 원본 삭제" 2단계에서 `File.Move(id, failedPath, overwrite: true)` 한 번(같은 볼륨 안에서 원자적) → 이동 후 `FailureCount` 내용 갱신 순서로 바꿔, `queue/`와 `queue/failed/`에 동시에 존재하는 창을 없앰.
