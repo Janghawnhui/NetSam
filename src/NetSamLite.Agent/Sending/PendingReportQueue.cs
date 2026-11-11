@@ -152,7 +152,13 @@ public sealed class PendingReportQueue(IOptions<AgentOptions> options, ILogger<P
         {
             var json = await File.ReadAllTextAsync(path, cancellationToken);
             var envelope = JsonSerializer.Deserialize<QueuedReportEnvelope>(json);
-            if (envelope?.Report is null)
+            if (envelope is null)
+            {
+                logger.LogWarning("큐 파일을 읽을 수 없어 건너뜀: {Path}", path);
+                return null;
+            }
+
+            if (envelope.Report is null)
             {
                 // 구버전 포맷(래퍼 없이 InventoryReport만 직렬화)이나 내용이 비어 있는 파일은
                 // 예외 없이 Report=null로 역직렬화되므로, 깨진 JSON과 동일하게 건너뛴다.
