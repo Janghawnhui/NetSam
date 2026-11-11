@@ -15,3 +15,6 @@ obj/
 .vs/
 .idea/
 *.user
+
+# Claude Code 하네스가 스케줄 작업 실행 중에 만드는 락 파일(작업 코드가 아님)
+.claude/scheduled_tasks.lock
