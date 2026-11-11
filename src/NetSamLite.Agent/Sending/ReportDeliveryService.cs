@@ -37,11 +37,11 @@ public sealed class ReportDeliveryService(
         {
             if (await SendWithRetryAsync(entry.Report, cancellationToken))
             {
-                await queue.RemoveAsync(entry.Id, cancellationToken);
+                await queue.RemoveAsync(entry.FilePath, cancellationToken);
                 continue;
             }
 
-            var gaveUpOnThisItem = await queue.RecordFailureAsync(entry.Id, cancellationToken);
+            var gaveUpOnThisItem = await queue.RecordFailureAsync(entry.FilePath, cancellationToken);
             if (gaveUpOnThisItem)
             {
                 // 재시도 상한을 넘겨 failed로 옮겨졌다 — 이 항목은 포기하지만 뒤에 쌓인

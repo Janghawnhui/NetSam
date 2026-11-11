@@ -154,7 +154,7 @@ public sealed class ReportDeliveryServiceTests : IDisposable
         // MaxQueueSendFailures(2)에 도달하도록).
         var preFlush = await _queue.ListPendingAsync(CancellationToken.None);
         var badEntry = preFlush.Single(p => p.Report.Device.DeviceId == "DEV-OLD-BAD");
-        await _queue.RecordFailureAsync(badEntry.Id, CancellationToken.None);
+        await _queue.RecordFailureAsync(badEntry.FilePath, CancellationToken.None);
 
         var sut = CreateSut();
 
