@@ -8,7 +8,7 @@ namespace NetSamLite.Agent.Sending;
 /// <summary>
 /// 전송 실패 시 들고 있는 정보: 실패 누적 횟수 + 원본 리포트. 파일 안에 그대로 직렬화해서 저장한다.
 /// </summary>
-internal sealed record QueuedReportEnvelope(int FailureCount, InventoryReport Report);
+internal sealed record QueuedReportEnvelope(int FailureCount, InventoryReport? Report);
 
 /// <summary>ListPendingAsync가 반환하는 큐 항목 1건. Id는 파일 전체 경로다.</summary>
 public sealed record PendingReportEntry(string Id, InventoryReport Report, int FailureCount);
@@ -52,7 +52,7 @@ public sealed class PendingReportQueue(IOptions<AgentOptions> options, ILogger<P
             var envelope = await ReadEnvelopeAsync(path, cancellationToken);
             if (envelope is not null)
             {
-                results.Add(new PendingReportEntry(path, envelope.Report, envelope.FailureCount));
+                results.Add(new PendingReportEntry(path, envelope.Value.Report, envelope.Value.FailureCount));
             }
         }
 
@@ -80,9 +80,10 @@ public sealed class PendingReportQueue(IOptions<AgentOptions> options, ILogger<P
             return true;
         }
 
-        var updated = envelope with { FailureCount = envelope.FailureCount + 1 };
+        var updatedFailureCount = envelope.Value.FailureCount + 1;
+        var updated = new QueuedReportEnvelope(updatedFailureCount, envelope.Value.Report);
         var maxFailures = Math.Max(1, options.Value.MaxQueueSendFailures);
-        if (updated.FailureCount < maxFailures)
+        if (updatedFailureCount < maxFailures)
         {
             await WriteEnvelopeAsync(id, updated, cancellationToken);
             return false;
@@ -94,7 +95,7 @@ public sealed class PendingReportQueue(IOptions<AgentOptions> options, ILogger<P
         RemoveQuietly(id);
         logger.LogError(
             "리포트가 {FailureCount}번 연속 전송 실패해서 포기하고 failed 폴더로 옮김: {Path}",
-            updated.FailureCount, failedPath);
+            updatedFailureCount, failedPath);
         return true;
     }
 
@@ -144,12 +145,22 @@ public sealed class PendingReportQueue(IOptions<AgentOptions> options, ILogger<P
         }
     }
 
-    private async Task<QueuedReportEnvelope?> ReadEnvelopeAsync(string path, CancellationToken cancellationToken)
+    private async Task<(int FailureCount, InventoryReport Report)?> ReadEnvelopeAsync(
+        string path, CancellationToken cancellationToken)
     {
         try
         {
             var json = await File.ReadAllTextAsync(path, cancellationToken);
-            return JsonSerializer.Deserialize<QueuedReportEnvelope>(json);
+            var envelope = JsonSerializer.Deserialize<QueuedReportEnvelope>(json);
+            if (envelope?.Report is null)
+            {
+                // 구버전 포맷(래퍼 없이 InventoryReport만 직렬화)이나 내용이 비어 있는 파일은
+                // 예외 없이 Report=null로 역직렬화되므로, 깨진 JSON과 동일하게 건너뛴다.
+                logger.LogWarning("큐 파일에 Report가 없어 건너뜀: {Path}", path);
+                return null;
+            }
+
+            return (envelope.FailureCount, envelope.Report);
         }
         catch (Exception ex) when (ex is IOException or JsonException)
         {
