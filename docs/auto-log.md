@@ -104,3 +104,56 @@ developer 초안 테스트 3개(Theory 포함 5케이스)를 검증 — 보강 �
   브랜치가 남아있었다(1회차 이전부터 존재, 커밋 없이 `74be051`에 그대로 멈춰 있음 — 이전에 그
   backlog 항목을 고르려다 중단된 흔적으로 보임). 이번 사이클 범위가 아니라 team-lead가 그대로
   두고 사용자에게만 보고했다. 다음 사이클에서 정리 여부를 사람이 결정.
+
+---
+
+## 2026-11-12 — `PendingReportEntry.Id`를 `FilePath`로 이름 변경
+
+- **backlog 항목**: `docs/backlog.md` 「코드 품질 (Phase 6)」 "`PendingReportQueue`의 `Id`가 사실 파일 경로인데 이름이 추상적" (2026-11-10 기록)
+- **기획서**: `docs/specs/2026-11-12-pending-report-filepath.md`
+- **브랜치**: `auto/2026-11-12-pending-report-filepath`
+- **변경 파일**:
+  - `src/NetSamLite.Agent/Sending/PendingReportQueue.cs`
+  - `src/NetSamLite.Agent/Sending/ReportDeliveryService.cs`
+  - `tests/NetSamLite.Agent.Tests/Sending/PendingReportQueueTests.cs`
+  - `tests/NetSamLite.Agent.Tests/Sending/ReportDeliveryServiceTests.cs`
+- **리뷰 루프 횟수**: 1회 (code-reviewer/test-writer 둘 다 첫 요청에서 🔴 없이 승인)
+- **최종 결과**: 통과 (`dotnet build` 경고 0개, `dotnet test` Agent 86 / Server 167 전체 통과 — team-lead가 머지 후 main에서도 재확인함)
+
+### 구현 요약 (이번 사이클: planner 중복 스폰 발생)
+
+team-lead가 기존에 떠 있던 팀(`planner`/`developer`/`test-writer`/`code-reviewer`, 2회차부터 유지되던
+상태)을 재사용해야 했는데, 실수로 새 `planner-2` 에이전트를 추가로 스폰했다. `planner-2`가 이미 기획서를
+작성하고 기존 `developer`에게 직접 SendMessage로 작업 지시까지 보낸 뒤였고, 산출물 품질이 괜찮아서
+team-lead는 되돌리지 않고 그 기획서를 그대로 채택했다. 기존 `planner` 에이전트는 이번 사이클에서 아무
+일도 하지 않고 idle로 남았다 — 중복 실행 비용 외에 결과물에 영향은 없었다.
+
+`PendingReportEntry.Id`(실제로는 큐 파일 전체 경로) 필드를 `FilePath`로 이름을 바꾸고, `RemoveAsync`/
+`RecordFailureAsync`의 매개변수도 `id`→`filePath`로 바꿔 호출부(`ReportDeliveryService`)까지 일관되게
+맞췄다. 기존에 레코드 선언에만 있던 "Id는 파일 경로다" XML 주석을 `RemoveAsync`/`RecordFailureAsync`의
+`<param>` 태그로도 확장해, 호출부에서 레코드 선언까지 추적하지 않고도 알 수 있게 했다. 제어 흐름·로그
+메시지·호출 순서는 변경하지 않았다(순수 식별자 이름 변경). `RemoveAsync(PendingReportEntry entry)`로
+시그니처 자체를 바꾸는 더 강한 캡슐화 개선은 backlog 범위를 넘는 설계 변경이라 「안 할 것」으로 명시하고
+적용하지 않았다.
+
+### test-writer 피드백 요약
+
+신규 테스트 3개(정상: `FilePath`가 큐 폴더의 실존 파일을 가리킴 / 경계: dead-letter 이후 `failed/` 경로가
+`FilePath`로 새어 나오지 않음 / 예외: `RemoveAsync`가 존재하지 않는 경로에도 던지지 않음) 검증 — 보강 없이
+그대로 승인. 기존 83개 테스트는 식별자 치환과 테스트 이름 1개 변경 외 무변경으로 전체 통과.
+
+### code-reviewer 피드백 요약
+
+🔴 없음, 승인. 🟡 1건(참고만, 처리 안 함): `developer`가 리뷰 통과 전에 `docs/backlog.md`를 먼저
+"해결됨"으로 옮겼던 순서 문제 — 결과물 자체는 정확함을 확인했고 되돌릴 필요는 없다고 판단했으나,
+다음 사이클부터는 "리뷰 승인 이후에 backlog.md 수정" 순서를 지키기로 함.
+
+### planner 질문/답변
+
+없음.
+
+### 그 외 특이사항
+
+- `auto/20261111-pending-report-id-naming`(고아 브랜치)는 이번 사이클에서도 그대로 손대지 않았다 —
+  사람이 삭제/재사용 여부를 결정할 때까지 보류.
+- 로컬 `main`이 origin보다 12커밋 앞서 있고(이번 머지 포함), push는 아직 요청받지 않아 하지 않았다.
