@@ -10,8 +10,11 @@ namespace NetSamLite.Agent.Sending;
 /// </summary>
 internal sealed record QueuedReportEnvelope(int FailureCount, InventoryReport? Report);
 
-/// <summary>ListPendingAsync가 반환하는 큐 항목 1건. Id는 파일 전체 경로다.</summary>
-public sealed record PendingReportEntry(string Id, InventoryReport Report, int FailureCount);
+/// <summary>
+/// ListPendingAsync가 반환하는 큐 항목 1건. FilePath는 큐 파일 전체 경로이며,
+/// RemoveAsync/RecordFailureAsync에 그대로 넘긴다.
+/// </summary>
+public sealed record PendingReportEntry(string FilePath, InventoryReport Report, int FailureCount);
 
 /// <summary>
 /// 서버 전송에 실패한 InventoryReport를 로컬 파일로 쌓아둔다. 파일 이름 앞부분이 UTC 타임스탬프라
@@ -59,24 +62,26 @@ public sealed class PendingReportQueue(IOptions<AgentOptions> options, ILogger<P
         return results;
     }
 
-    public Task RemoveAsync(string id, CancellationToken cancellationToken)
+    /// <param name="filePath">ListPendingAsync가 반환한 PendingReportEntry.FilePath를 그대로 넘긴다.</param>
+    public Task RemoveAsync(string filePath, CancellationToken cancellationToken)
     {
-        if (File.Exists(id))
+        if (File.Exists(filePath))
         {
-            File.Delete(id);
+            File.Delete(filePath);
         }
 
         return Task.CompletedTask;
     }
 
+    /// <param name="filePath">ListPendingAsync가 반환한 PendingReportEntry.FilePath를 그대로 넘긴다.</param>
     /// <returns>true면 이 항목은 재시도 상한을 넘어 failed 폴더로 옮겨졌다(더 이상 뒤를 막지 않아도 됨).</returns>
-    public async Task<bool> RecordFailureAsync(string id, CancellationToken cancellationToken)
+    public async Task<bool> RecordFailureAsync(string filePath, CancellationToken cancellationToken)
     {
-        var envelope = await ReadEnvelopeAsync(id, cancellationToken);
+        var envelope = await ReadEnvelopeAsync(filePath, cancellationToken);
         if (envelope is null)
         {
             // 읽을 수 없는 파일을 계속 들고 있어봐야 영원히 막히기만 하니 치운다.
-            RemoveQuietly(id);
+            RemoveQuietly(filePath);
             return true;
         }
 
@@ -85,17 +90,17 @@ public sealed class PendingReportQueue(IOptions<AgentOptions> options, ILogger<P
         var maxFailures = Math.Max(1, options.Value.MaxQueueSendFailures);
         if (updatedFailureCount < maxFailures)
         {
-            await WriteEnvelopeAsync(id, updated, cancellationToken);
+            await WriteEnvelopeAsync(filePath, updated, cancellationToken);
             return false;
         }
 
         Directory.CreateDirectory(FailedDirectory);
-        var failedPath = Path.Combine(FailedDirectory, Path.GetFileName(id));
+        var failedPath = Path.Combine(FailedDirectory, Path.GetFileName(filePath));
         // 이동(File.Move)을 내용 갱신보다 먼저 한다: 같은 볼륨 안에서는 File.Move가 원자적이라
         // "큐에서 사라짐"과 "failed에 나타남"이 동시에 일어나 양쪽에 동시 존재하는 창이 없다.
         // 반대 순서(내용 먼저 갱신 → 이동)면 그 사이에 죽을 때 포기한 리포트가 queue/에 남아
         // 재시도 예산을 한 번 더 소모하는 지금 문제의 변형이 남는다.
-        File.Move(id, failedPath, overwrite: true);
+        File.Move(filePath, failedPath, overwrite: true);
         await WriteEnvelopeAsync(failedPath, updated, cancellationToken);
         logger.LogError(
             "리포트가 {FailureCount}번 연속 전송 실패해서 포기하고 failed 폴더로 옮김: {Path}",

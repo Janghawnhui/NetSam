@@ -11,12 +11,6 @@
 
 ## 코드 품질 (Phase 6)
 
-### `PendingReportQueue`의 `Id`가 사실 파일 경로인데 이름이 추상적
-- **위치**: `src/NetSamLite.Agent/Sending/PendingReportQueue.cs` (`PendingReportEntry.Id`, `RemoveAsync`/`RecordFailureAsync`의 `id` 매개변수)
-- **현상**: `ListPendingAsync`가 반환하는 `Id`는 실제로는 큐 파일의 절대경로이고, `RemoveAsync`/`RecordFailureAsync`도 그 값을 그대로 `File.Exists`/`File.Delete`/`File.Move`에 쓴다. 호출부(`ReportDeliveryService`)가 "이게 파일 경로"라는 구현 세부사항에 암묵적으로 의존하게 됨.
-- **나중에 고려할 방향**: 필드명을 `Path`로 바꾸거나, XML 주석에 "이 Id는 파일 경로다"를 명시.
-- **기록일**: 2026-11-10 (Phase 6 code-reviewer 리뷰에서 🟡로 지적됨)
-
 ### `AgentOptions`가 두 경로로 중복 구성됨
 - **위치**: `src/NetSamLite.Agent/Program.cs` (`RunAsService`)
 - **현상**: Serilog/HttpClient 설정에 쓸 `AgentOptions`를 `builder.Configuration.GetSection(...).Get<AgentOptions>()`로 한 번 수동 바인딩하고, DI의 `IOptions<AgentOptions>`용으로 `builder.Services.Configure<AgentOptions>(...)`를 또 호출한다. 지금은 같은 설정 소스(appsettings.json의 "Agent" 섹션)라 동작은 일치하지만, 둘 중 하나만 건드리면 드리프트가 생기기 쉬운 구조.
@@ -112,3 +106,12 @@
 - **브랜치**: `auto/2026-11-11-failed-folder-atomic-move`
 - **기획서**: `docs/specs/2026-11-11-failed-folder-atomic-move.md`
 - **해결 방법**: dead-letter 분기를 "사본 쓰기 → 원본 삭제" 2단계에서 `File.Move(id, failedPath, overwrite: true)` 한 번(같은 볼륨 안에서 원자적) → 이동 후 `FailureCount` 내용 갱신 순서로 바꿔, `queue/`와 `queue/failed/`에 동시에 존재하는 창을 없앰.
+
+### `PendingReportQueue`의 `Id`가 사실 파일 경로인데 이름이 추상적
+- **위치**: `src/NetSamLite.Agent/Sending/PendingReportQueue.cs` (`PendingReportEntry.Id`, `RemoveAsync`/`RecordFailureAsync`의 `id` 매개변수)
+- **현상**: `ListPendingAsync`가 반환하는 `Id`는 실제로는 큐 파일의 절대경로이고, `RemoveAsync`/`RecordFailureAsync`도 그 값을 그대로 `File.Exists`/`File.Delete`/`File.Move`에 쓴다. 호출부(`ReportDeliveryService`)가 "이게 파일 경로"라는 구현 세부사항에 암묵적으로 의존하게 됨.
+- **기록일**: 2026-11-10 (Phase 6 code-reviewer 리뷰에서 🟡로 지적됨)
+- **해결일**: 2026-11-12
+- **브랜치**: `auto/2026-11-12-pending-report-filepath`
+- **기획서**: `docs/specs/2026-11-12-pending-report-filepath.md`
+- **해결 방법**: `PendingReportEntry.Id`를 `FilePath`로, `RemoveAsync`/`RecordFailureAsync`의 매개변수 `id`를 `filePath`로 이름 바꾸고 `<param>` 주석을 추가해 "이 문자열은 큐 파일 경로"라는 계약을 타입에 드러냄. 런타임 동작 변경 없음.

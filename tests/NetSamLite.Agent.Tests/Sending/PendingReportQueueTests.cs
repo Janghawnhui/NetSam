@@ -59,7 +59,7 @@ public sealed class PendingReportQueueTests : IDisposable
         var pendingBefore = await _sut.ListPendingAsync(CancellationToken.None);
         pendingBefore.Should().ContainSingle();
 
-        await _sut.RemoveAsync(pendingBefore[0].Id, CancellationToken.None);
+        await _sut.RemoveAsync(pendingBefore[0].FilePath, CancellationToken.None);
         var pendingAfter = await _sut.ListPendingAsync(CancellationToken.None);
 
         pendingAfter.Should().BeEmpty();
@@ -100,8 +100,8 @@ public sealed class PendingReportQueueTests : IDisposable
         var entry = (await sut.ListPendingAsync(CancellationToken.None)).Single();
         entry.FailureCount.Should().Be(0);
 
-        var gaveUp1 = await sut.RecordFailureAsync(entry.Id, CancellationToken.None);
-        var gaveUp2 = await sut.RecordFailureAsync(entry.Id, CancellationToken.None);
+        var gaveUp1 = await sut.RecordFailureAsync(entry.FilePath, CancellationToken.None);
+        var gaveUp2 = await sut.RecordFailureAsync(entry.FilePath, CancellationToken.None);
 
         gaveUp1.Should().BeFalse();
         gaveUp2.Should().BeFalse();
@@ -124,7 +124,7 @@ public sealed class PendingReportQueueTests : IDisposable
         bool gaveUp = false;
         for (var i = 0; i < maxFailures; i++)
         {
-            gaveUp = await sut.RecordFailureAsync(entry.Id, CancellationToken.None);
+            gaveUp = await sut.RecordFailureAsync(entry.FilePath, CancellationToken.None);
         }
 
         gaveUp.Should().BeTrue();
@@ -159,8 +159,8 @@ public sealed class PendingReportQueueTests : IDisposable
         await sut.EnqueueAsync(CreateReport("DEV-DEAD"), CancellationToken.None);
         var entry = (await sut.ListPendingAsync(CancellationToken.None)).Single();
 
-        await sut.RecordFailureAsync(entry.Id, CancellationToken.None);
-        var gaveUp = await sut.RecordFailureAsync(entry.Id, CancellationToken.None);
+        await sut.RecordFailureAsync(entry.FilePath, CancellationToken.None);
+        var gaveUp = await sut.RecordFailureAsync(entry.FilePath, CancellationToken.None);
 
         gaveUp.Should().BeTrue();
         (await sut.ListPendingAsync(CancellationToken.None)).Should().BeEmpty();
@@ -184,10 +184,10 @@ public sealed class PendingReportQueueTests : IDisposable
         var entry = (await sut.ListPendingAsync(CancellationToken.None)).Single();
         var failedDirectory = Path.Combine(_queueDirectory, "failed");
         Directory.CreateDirectory(failedDirectory);
-        var preExistingPath = Path.Combine(failedDirectory, Path.GetFileName(entry.Id));
+        var preExistingPath = Path.Combine(failedDirectory, Path.GetFileName(entry.FilePath));
         await File.WriteAllTextAsync(preExistingPath, "{}");
 
-        var gaveUp = await sut.RecordFailureAsync(entry.Id, CancellationToken.None);
+        var gaveUp = await sut.RecordFailureAsync(entry.FilePath, CancellationToken.None);
 
         gaveUp.Should().BeTrue();
         Directory.GetFiles(_queueDirectory, "*.json").Should().BeEmpty();
@@ -199,7 +199,7 @@ public sealed class PendingReportQueueTests : IDisposable
     }
 
     [Fact]
-    public async Task RecordFailureAsync_IdFileDoesNotExist_ReturnsTrueAndCreatesNothingInFailedFolder()
+    public async Task RecordFailureAsync_QueueFileDoesNotExist_ReturnsTrueAndCreatesNothingInFailedFolder()
     {
         Directory.CreateDirectory(_queueDirectory);
         var missingPath = Path.Combine(_queueDirectory, "20200101T000000000Z_missing.json");
@@ -244,12 +244,12 @@ public sealed class PendingReportQueueTests : IDisposable
         var entry = (await sut.ListPendingAsync(CancellationToken.None)).Single();
         // QueueRetentionDays가 0 이하면 Math.Max(1, ...)로 1일로 처리되므로, 파일의 마지막 쓰기
         // 시각을 명시적으로 이틀 전으로 돌려서 "보관 기간이 지난 파일"을 재현한다.
-        File.SetLastWriteTimeUtc(entry.Id, DateTime.UtcNow.AddDays(-2));
+        File.SetLastWriteTimeUtc(entry.FilePath, DateTime.UtcNow.AddDays(-2));
 
         var pending = await sut.ListPendingAsync(CancellationToken.None);
 
         pending.Should().BeEmpty();
-        File.Exists(entry.Id).Should().BeFalse();
+        File.Exists(entry.FilePath).Should().BeFalse();
     }
 
     [Fact]
@@ -265,7 +265,7 @@ public sealed class PendingReportQueueTests : IDisposable
         var sut = new PendingReportQueue(options, NullLogger<PendingReportQueue>.Instance);
         await sut.EnqueueAsync(CreateReport("DEV-1"), CancellationToken.None);
         var entry = (await sut.ListPendingAsync(CancellationToken.None)).Single();
-        await sut.RecordFailureAsync(entry.Id, CancellationToken.None); // -> failed 폴더로 이동
+        await sut.RecordFailureAsync(entry.FilePath, CancellationToken.None); // -> failed 폴더로 이동
 
         var failedDirectory = Path.Combine(_queueDirectory, "failed");
         var failedFile = Directory.GetFiles(failedDirectory, "*.json").Single();
@@ -293,7 +293,7 @@ public sealed class PendingReportQueueTests : IDisposable
     {
         await _sut.EnqueueAsync(CreateReport("DEV-1"), CancellationToken.None);
         var entry = (await _sut.ListPendingAsync(CancellationToken.None)).Single();
-        await _sut.RecordFailureAsync(entry.Id, CancellationToken.None);
+        await _sut.RecordFailureAsync(entry.FilePath, CancellationToken.None);
 
         var pending = await _sut.ListPendingAsync(CancellationToken.None);
 
@@ -333,5 +333,46 @@ public sealed class PendingReportQueueTests : IDisposable
 
         gaveUp.Should().BeTrue();
         File.Exists(path).Should().BeFalse();
+    }
+
+    // ----- FilePath 계약 -----
+
+    [Fact]
+    public async Task ListPendingAsync_ReturnedEntry_FilePathPointsToExistingFileInQueueDirectory()
+    {
+        await _sut.EnqueueAsync(CreateReport("DEV-1"), CancellationToken.None);
+
+        var entry = (await _sut.ListPendingAsync(CancellationToken.None)).Single();
+
+        File.Exists(entry.FilePath).Should().BeTrue();
+        Path.GetDirectoryName(entry.FilePath).Should().Be(_queueDirectory);
+        Path.GetExtension(entry.FilePath).Should().Be(".json");
+    }
+
+    [Fact]
+    public async Task ListPendingAsync_AfterEntryMovedToFailedFolder_NoEntryFilePathPointsIntoFailedFolder()
+    {
+        var options = Options.Create(
+            new AgentOptions { QueueDirectory = _queueDirectory, MaxQueueSendFailures = 1 });
+        var sut = new PendingReportQueue(options, NullLogger<PendingReportQueue>.Instance);
+        await sut.EnqueueAsync(CreateReport("DEV-DEAD"), CancellationToken.None);
+        var entry = (await sut.ListPendingAsync(CancellationToken.None)).Single();
+        var originalFilePath = entry.FilePath;
+
+        await sut.RecordFailureAsync(entry.FilePath, CancellationToken.None);
+
+        File.Exists(originalFilePath).Should().BeFalse();
+        (await sut.ListPendingAsync(CancellationToken.None)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RemoveAsync_FilePathDoesNotExist_DoesNotThrow()
+    {
+        Directory.CreateDirectory(_queueDirectory);
+        var missingPath = Path.Combine(_queueDirectory, "20200101T000000000Z_gone.json");
+
+        var act = async () => await _sut.RemoveAsync(missingPath, CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
     }
 }
