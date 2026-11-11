@@ -40,4 +40,20 @@ public sealed class AgentOptions
 
     /// <summary>로그 파일 보관 일수. 이보다 오래된 로그 파일은 자동 삭제.</summary>
     public int LogRetentionDays { get; set; } = 14;
+
+    /// <summary>서버 Hub 경로. NetSamLite.Shared.Hub.AgentHubContract.Path와 같은 값이어야 한다.</summary>
+    public string HubPath { get; set; } = "/hubs/agent";
+
+    /// <summary>하트비트 전송 주기(초).</summary>
+    public int HeartbeatIntervalSeconds { get; set; } = 60;
+
+    /// <summary>Hub 재연결 백오프 기준 지연(초). 끊길 때마다 이 값부터 지수적으로 늘어난다.</summary>
+    public int ReconnectBaseDelaySeconds { get; set; } = 2;
+
+    /// <summary>Hub 재연결 백오프 상한(초). 지수 증가가 이 값을 넘지 않는다.</summary>
+    public int ReconnectMaxDelaySeconds { get; set; } = 60;
+
+    /// <summary>Hub 인증 토큰을 저장하는 파일 경로. QueueDirectory/LogDirectory와 같은 이유로 ProgramData 하위가 기본값.</summary>
+    public string TokenFilePath { get; set; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NetSamLite", "device-token.dat");
 }

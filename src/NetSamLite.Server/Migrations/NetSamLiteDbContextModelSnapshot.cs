@@ -17,6 +17,31 @@ namespace NetSamLite.Server.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
+            modelBuilder.Entity("NetSamLite.Server.Data.Entities.DeviceConnectionEntity", b =>
+                {
+                    b.Property<string>("DeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ConnectionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsOnline")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastConnectedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastDisconnectedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastHeartbeatUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("DeviceId");
+
+                    b.ToTable("DeviceConnections");
+                });
+
             modelBuilder.Entity("NetSamLite.Server.Data.Entities.DeviceDiskEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -82,6 +107,23 @@ namespace NetSamLite.Server.Migrations
                     b.HasKey("DeviceId");
 
                     b.ToTable("Devices");
+                });
+
+            modelBuilder.Entity("NetSamLite.Server.Data.Entities.DeviceTokenEntity", b =>
+                {
+                    b.Property<string>("DeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("IssuedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("DeviceId");
+
+                    b.ToTable("DeviceTokens");
                 });
 
             modelBuilder.Entity("NetSamLite.Server.Data.Entities.InstalledSoftwareSnapshotEntity", b =>

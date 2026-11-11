@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using NetSamLite.Server.Data;
 using NetSamLite.Server.Devices;
@@ -6,8 +7,10 @@ using NetSamLite.Server.Inventory;
 using NetSamLite.Server.Licensing;
 using NetSamLite.Server.Normalization;
 using NetSamLite.Server.Policy;
+using NetSamLite.Server.Realtime;
 using NetSamLite.Server.Reports;
 using NetSamLite.Shared;
+using NetSamLite.Shared.Hub;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,12 +33,34 @@ builder.Services.AddScoped<DeviceDirectoryService>();
 builder.Services.AddScoped<LicenseService>();
 builder.Services.AddScoped<ProhibitedSoftwareService>();
 
+// Hub에만 장치 토큰 인증을 건다 — 기존 엔드포인트 11개는 전부 익명 유지(동작 변경 0).
+builder.Services.AddScoped<DeviceTokenService>();
+builder.Services.AddScoped<DeviceConnectionTracker>();
+builder.Services.AddSignalR();
+builder.Services
+    .AddAuthentication(DeviceTokenAuthenticationHandler.SchemeName)
+    .AddScheme<AuthenticationSchemeOptions, DeviceTokenAuthenticationHandler>(
+        DeviceTokenAuthenticationHandler.SchemeName, configureOptions: null);
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
     scope.ServiceProvider.GetRequiredService<NetSamLiteDbContext>().Database.Migrate();
 }
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapHub<AgentHub>(AgentHubContract.Path).RequireAuthorization();
+
+app.MapPost("/api/v1/devices/{deviceId}/enroll", async (
+    string deviceId, EnrollmentRequest request, DeviceTokenService tokenService, CancellationToken ct) =>
+{
+    var token = await tokenService.IssueAsync(deviceId, request.EnrollmentSecret, ct);
+    return token is null ? Results.Unauthorized() : Results.Ok(new EnrollmentResponse(deviceId, token));
+});
 
 app.MapPost("/api/v1/inventory", async (
     InventoryReport? report, InventoryIngestionService ingestionService, CancellationToken cancellationToken) =>

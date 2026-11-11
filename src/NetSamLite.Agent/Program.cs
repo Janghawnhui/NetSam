@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NetSamLite.Agent;
 using NetSamLite.Agent.Collectors;
+using NetSamLite.Agent.Realtime;
 using NetSamLite.Agent.Sending;
 using NetSamLite.Shared;
 using Serilog;
@@ -97,6 +98,14 @@ static int RunAsService(string[] args)
     });
 
     builder.Services.AddHostedService<AgentWorker>();
+
+    builder.Services.AddHttpClient<IDeviceEnrollmentClient, HttpDeviceEnrollmentClient>((sp, client) =>
+    {
+        client.BaseAddress = new Uri(agentOptions.ServerBaseUrl);
+    });
+    builder.Services.AddSingleton<DeviceTokenStore>();
+    builder.Services.AddSingleton<HubBackoffRetryPolicy>();
+    builder.Services.AddHostedService<AgentHubWorker>();
 
     try
     {

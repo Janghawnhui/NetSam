@@ -1,0 +1,40 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+using NetSamLite.Shared.Hub;
+
+namespace NetSamLite.Server.Realtime;
+
+/// <summary>
+/// 에이전트↔서버 상시 연결 Hub. 강타입 Hub&lt;IAgentClient&gt;를 쓰는 이유: 서버→에이전트
+/// 메서드명·인자 타입이 컴파일 시점에 검증되고, Hub 계약(설계안 A)의 메시지별 SchemaVersion과
+/// 결이 같다. DeviceId는 클라이언트가 보낸 어떤 값도 신뢰하지 않고 항상 인증된 클레임에서만
+/// 읽는다 — 인증 미비 시 다른 장치를 사칭해 명령 주입을 할 수 있는 위험에 대한 직접적 대응이다.
+/// </summary>
+[Authorize(AuthenticationSchemes = DeviceTokenAuthenticationHandler.SchemeName)]
+public sealed class AgentHub(DeviceConnectionTracker tracker, ILogger<AgentHub> logger) : Hub<IAgentClient>
+{
+    public override async Task OnConnectedAsync()
+    {
+        var deviceId = GetAuthenticatedDeviceId();
+        // 장치별 그룹에 넣는 이유: 같은 장치가 재연결로 ConnectionId가 바뀌어도
+        // "그 장치로 보내기"(IHubContext.Clients.Group(deviceId))가 유지된다.
+        await Groups.AddToGroupAsync(Context.ConnectionId, deviceId);
+        await tracker.RecordConnectedAsync(deviceId, Context.ConnectionId, Context.ConnectionAborted);
+        logger.LogInformation("장치 연결됨: {DeviceId}", deviceId);
+        await base.OnConnectedAsync();
+    }
+
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        var deviceId = GetAuthenticatedDeviceId();
+        // 이미 연결이 끊긴 뒤라 Context.ConnectionAborted를 쓰면 즉시 취소된 토큰이 된다.
+        await tracker.RecordDisconnectedAsync(deviceId, CancellationToken.None);
+        logger.LogInformation("장치 연결 해제됨: {DeviceId}", deviceId);
+        await base.OnDisconnectedAsync(exception);
+    }
+
+    private string GetAuthenticatedDeviceId() =>
+        Context.User?.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? throw new InvalidOperationException("인증된 DeviceId 클레임이 없는 연결입니다.");
+}
