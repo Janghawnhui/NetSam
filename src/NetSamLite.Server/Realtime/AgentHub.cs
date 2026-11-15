@@ -34,6 +34,33 @@ public sealed class AgentHub(DeviceConnectionTracker tracker, ILogger<AgentHub> 
         await base.OnDisconnectedAsync(exception);
     }
 
+    /// <summary>
+    /// Hub에 클라이언트 입력이 처음 생기는 지점이다. HeartbeatMessage.DeviceId는 로그에만
+    /// 쓰는 참고값일 뿐이고, 기록은 항상 GetAuthenticatedDeviceId()(인증 클레임)로 한다 —
+    /// 메시지 바디로 다른 장치를 사칭해 그 장치의 LastHeartbeatUtc를 갱신할 수 없다.
+    /// </summary>
+    public async Task<HeartbeatAck> SendHeartbeatAsync(HeartbeatMessage message)
+    {
+        if (message.SchemaVersion != AgentHubContract.CurrentSchemaVersion)
+        {
+            logger.LogWarning(
+                "하트비트 SchemaVersion 불일치, 처리하지 않음: {DeviceId}, 수신={Received}, 기대={Expected}",
+                message.DeviceId, message.SchemaVersion, AgentHubContract.CurrentSchemaVersion);
+            return new HeartbeatAck(AgentHubContract.CurrentSchemaVersion, DateTime.UtcNow);
+        }
+
+        var claimDeviceId = GetAuthenticatedDeviceId();
+        if (!string.Equals(claimDeviceId, message.DeviceId, StringComparison.Ordinal))
+        {
+            logger.LogWarning(
+                "하트비트 바디의 DeviceId가 인증 클레임과 다름(무시하고 클레임 값 사용): {ClaimDeviceId} != {BodyDeviceId}",
+                claimDeviceId, message.DeviceId);
+        }
+
+        await tracker.RecordHeartbeatAsync(claimDeviceId, Context.ConnectionAborted);
+        return new HeartbeatAck(AgentHubContract.CurrentSchemaVersion, DateTime.UtcNow);
+    }
+
     private string GetAuthenticatedDeviceId() =>
         Context.User?.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? throw new InvalidOperationException("인증된 DeviceId 클레임이 없는 연결입니다.");

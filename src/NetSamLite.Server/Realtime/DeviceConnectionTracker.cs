@@ -54,6 +54,23 @@ public sealed class DeviceConnectionTracker(NetSamLiteDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// LastHeartbeatUtc만 갱신한다. IsOnline은 건드리지 않는다(확정 결정 5) — 해제 후
+    /// 지연 도착한 하트비트가 이미 false로 기록된 상태를 다시 true로 뒤집지 않는다.
+    /// </summary>
+    public async Task RecordHeartbeatAsync(string deviceId, CancellationToken cancellationToken)
+    {
+        var entity = await dbContext.DeviceConnections.FindAsync([deviceId], cancellationToken);
+        if (entity is null)
+        {
+            // 연결 기록이 없는 장치의 하트비트는 정상적으로는 발생하지 않는다 — 조용히 무시.
+            return;
+        }
+
+        entity.LastHeartbeatUtc = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<DeviceConnectionStatus>> ListStatusesAsync(CancellationToken cancellationToken) =>
         await dbContext.DeviceConnections
             .AsNoTracking()

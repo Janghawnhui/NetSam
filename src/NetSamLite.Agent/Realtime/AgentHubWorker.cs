@@ -3,12 +3,13 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NetSamLite.Agent.Collectors;
+using NetSamLite.Shared.Hub;
 
 namespace NetSamLite.Agent.Realtime;
 
 /// <summary>
-/// 서버 Hub(AgentHubContract.Path)에 상시 연결을 유지한다. 7-A 단계에서는 연결 유지까지만
-/// 다루고, 하트비트/명령 수신 핸들러는 7-B/7-C에서 추가된다.
+/// 서버 Hub(AgentHubContract.Path)에 상시 연결을 유지하고 PeriodicTimer로 주기 하트비트를
+/// 보낸다(7-B). 명령 수신 핸들러는 7-C에서 추가된다.
 ///
 /// WithAutomaticReconnect는 "이미 성립한 연결이 끊긴 경우"만 다시 붙여준다 — StartAsync
 /// 자체가 처음부터 실패하면(서버가 아직 안 떠 있음, 서비스 자동 시작에서 매우 흔한 상황)
@@ -22,18 +23,22 @@ public sealed class AgentHubWorker(
     IOptions<AgentOptions> options,
     ILogger<AgentHubWorker> logger) : BackgroundService
 {
+    private static readonly string AgentVersion =
+        typeof(AgentHubWorker).Assembly.GetName().Version?.ToString() ?? "unknown";
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var connection = await ConnectWithBackoffAsync(stoppingToken);
-        if (connection is null)
+        var connected = await ConnectWithBackoffAsync(stoppingToken);
+        if (connected is null)
         {
             // stoppingToken이 취소되어 루프를 빠져나온 경우뿐이다(영구 포기는 하지 않는다 — 확정 결정 4).
             return;
         }
 
+        var (connection, deviceId) = connected.Value;
         try
         {
-            await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
+            await RunHeartbeatLoopAsync(connection, deviceId, stoppingToken);
         }
         catch (OperationCanceledException)
         {
@@ -45,7 +50,47 @@ public sealed class AgentHubWorker(
         }
     }
 
-    private async Task<HubConnection?> ConnectWithBackoffAsync(CancellationToken stoppingToken)
+    /// <summary>
+    /// PeriodicTimer로 하트비트를 보낸다. 연결이 끊긴 동안(재연결 시도 중)에는 건너뛰고,
+    /// WithAutomaticReconnect가 다시 Connected 상태로 돌려놓으면 다음 틱부터 재개한다 —
+    /// 별도의 "재연결됨" 이벤트 처리 없이 상태만 확인하면 되는 단순한 방식이다.
+    /// </summary>
+    private async Task RunHeartbeatLoopAsync(HubConnection connection, string deviceId, CancellationToken stoppingToken)
+    {
+        var intervalSeconds = Math.Max(1, options.Value.HeartbeatIntervalSeconds);
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(intervalSeconds));
+
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            if (connection.State != HubConnectionState.Connected)
+            {
+                continue;
+            }
+
+            try
+            {
+                var message = new HeartbeatMessage(
+                    AgentHubContract.CurrentSchemaVersion, deviceId, AgentVersion, DateTime.UtcNow);
+                var ack = await connection.InvokeAsync<HeartbeatAck>(
+                    "SendHeartbeatAsync", message, stoppingToken);
+                if (ack.SchemaVersion != AgentHubContract.CurrentSchemaVersion)
+                {
+                    logger.LogWarning(
+                        "하트비트 응답 SchemaVersion 불일치: {DeviceId}, 수신={Received}, 기대={Expected}",
+                        deviceId, ack.SchemaVersion, AgentHubContract.CurrentSchemaVersion);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // 하트비트 1회 전송 실패는 치명적이지 않다 — 연결 유지 자체는
+                // WithAutomaticReconnect가 별도로 관리하므로 다음 틱에서 다시 시도한다.
+                logger.LogWarning(ex, "하트비트 전송 실패: {DeviceId}", deviceId);
+            }
+        }
+    }
+
+    private async Task<(HubConnection Connection, string DeviceId)?> ConnectWithBackoffAsync(
+        CancellationToken stoppingToken)
     {
         var attempt = 0;
         while (!stoppingToken.IsCancellationRequested)
@@ -70,7 +115,7 @@ public sealed class AgentHubWorker(
 
                 await connection.StartAsync(stoppingToken);
                 logger.LogInformation("Hub 연결 성립: {DeviceId}", deviceId);
-                return connection;
+                return (connection, deviceId);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

@@ -182,6 +182,48 @@ public sealed class DeviceTokenAuthTests : IClassFixture<RealtimeApiFactory>
             await connection.DisposeAsync();
         }
     }
+
+    /// <summary>
+    /// (갱신 3) 메시지 바디의 DeviceId 위조는 SendHeartbeatAsync가 생기는 7-B에서 처음
+    /// 가능해진다 — 7-A의 연결 테스트 인프라(위 Hub_WithTokenOfAnotherDevice_CannotActAsThatDevice)를
+    /// 재사용해 "바디에 다른 장치 ID를 담아 보내도 무시되고 클레임의 DeviceId만 쓴다"를 검증한다.
+    /// </summary>
+    [Fact]
+    public async Task Hub_HeartbeatBodyClaimsAnotherDeviceId_RecordsClaimDeviceIdOnly()
+    {
+        var deviceA = $"DEV-A-{Guid.NewGuid()}";
+        var deviceB = $"DEV-B-{Guid.NewGuid()}";
+        await EnrollAsync(deviceA);
+        var tokenB = await EnrollAsync(deviceB);
+        var connection = BuildConnection(headerToken: tokenB);
+
+        try
+        {
+            await connection.StartAsync();
+
+            using var scope = _factory.Services.CreateScope();
+            var tracker = scope.ServiceProvider.GetRequiredService<DeviceConnectionTracker>();
+            var connectedStatuses = await PollUntilAsync(
+                () => tracker.ListStatusesAsync(CancellationToken.None),
+                s => s.Any(x => x.DeviceId == deviceB && x.IsOnline));
+            var beforeHeartbeat = connectedStatuses.Single(s => s.DeviceId == deviceB).LastHeartbeatUtc;
+
+            await Task.Delay(50);
+            var message = new HeartbeatMessage(
+                AgentHubContract.CurrentSchemaVersion, DeviceId: deviceA, AgentVersion: "test-agent", SentAtUtc: DateTime.UtcNow);
+            var ack = await connection.InvokeAsync<HeartbeatAck>("SendHeartbeatAsync", message);
+
+            ack.SchemaVersion.Should().Be(AgentHubContract.CurrentSchemaVersion);
+            var statuses = await tracker.ListStatusesAsync(CancellationToken.None);
+            var deviceBStatus = statuses.Should().ContainSingle(s => s.DeviceId == deviceB).Subject;
+            deviceBStatus.LastHeartbeatUtc.Should().BeAfter(beforeHeartbeat!.Value);
+            statuses.Should().NotContain(s => s.DeviceId == deviceA);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
 }
 
 /// <summary>

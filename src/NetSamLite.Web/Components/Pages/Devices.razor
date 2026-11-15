@@ -1,10 +1,14 @@
 @page "/devices"
 @using NetSamLite.Server.Devices
+@using NetSamLite.Server.Realtime
 @inject DeviceDirectoryService DirectoryService
+@inject DeviceConnectionTracker ConnectionTracker
 
 <PageTitle>장치 목록</PageTitle>
 
 <h1>장치 목록</h1>
+
+<button @onclick="RefreshAsync">새로 고침</button>
 
 @if (_devices is null)
 {
@@ -27,11 +31,14 @@ else
                 <th>디스크</th>
                 <th>마지막 수집 시각</th>
                 <th>설치 SW 개수</th>
+                <th>연결 상태</th>
+                <th>마지막 확인</th>
             </tr>
         </thead>
         <tbody>
             @foreach (var device in _devices)
             {
+                var status = _connectionStatuses?.GetValueOrDefault(device.DeviceId);
                 <tr>
                     <td><a href="@($"devices/{device.DeviceId}")">@device.ComputerName</a></td>
                     <td>@device.Manufacturer / @device.Model</td>
@@ -46,6 +53,8 @@ else
                     </td>
                     <td>@device.LastSeenUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                     <td>@device.InstalledSoftwareCount</td>
+                    <td>@((status?.IsOnline ?? false) ? "온라인" : "오프라인")</td>
+                    <td>@(status?.LastHeartbeatUtc is { } heartbeat ? heartbeat.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-")</td>
                 </tr>
             }
         </tbody>
@@ -54,10 +63,18 @@ else
 
 @code {
     private IReadOnlyList<DeviceSummary>? _devices;
+    private Dictionary<string, DeviceConnectionStatus>? _connectionStatuses;
 
     protected override async Task OnInitializedAsync()
     {
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
         _devices = await DirectoryService.ListAsync(CancellationToken.None);
+        var statuses = await ConnectionTracker.ListStatusesAsync(CancellationToken.None);
+        _connectionStatuses = statuses.ToDictionary(s => s.DeviceId);
     }
 
     private static string FormatGigabytes(long bytes) => $"{bytes / 1024.0 / 1024.0 / 1024.0:F1} GB";

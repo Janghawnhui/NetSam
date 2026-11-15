@@ -4,6 +4,7 @@ using NetSamLite.Server.Devices;
 using NetSamLite.Server.Licensing;
 using NetSamLite.Server.Normalization;
 using NetSamLite.Server.Policy;
+using NetSamLite.Server.Realtime;
 using NetSamLite.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,16 @@ builder.Services.AddScoped<LicenseService>();
 builder.Services.AddScoped<ProhibitedSoftwareAlertService>();
 builder.Services.AddScoped<ProhibitedSoftwareService>();
 builder.Services.AddScoped<DeviceDirectoryService>();
+
+// 연결 상태 표시(읽기)는 기존 패턴대로 Server 프로젝트의 DeviceConnectionTracker를
+// in-process DI로 주입해 DB를 직접 읽는다. "지금 수집"(쓰기, 7-C)은 Web이 Server와
+// 별 프로세스라 HTTP로만 가능하므로 Server를 가리키는 HttpClient를 여기서 등록해 둔다.
+builder.Services.AddScoped<DeviceConnectionTracker>();
+
+var serverBaseUrl = builder.Configuration["ServerBaseUrl"]
+    ?? throw new InvalidOperationException(
+        "ServerBaseUrl이 설정돼 있지 않습니다. appsettings.json에 \"ServerBaseUrl\"을 추가하세요.");
+builder.Services.AddHttpClient("NetSamLiteServer", client => client.BaseAddress = new Uri(serverBaseUrl));
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
