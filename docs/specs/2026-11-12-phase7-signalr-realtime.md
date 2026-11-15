@@ -2,7 +2,8 @@
 
 - 작성일: 2026-11-12
 - 갱신 1: 2026-11-12 — **열린 질문 4개와 Hub 계약이 모두 확정됨**(아래 「확정된 결정」). 더 이상 선택지가 남아 있지 않다.
-- 갱신 2: 2026-11-12 — 7-A 구현 중 developer 질의로 **`tests/NetSamLite.Server.Tests/NetSamLite.Server.Tests.csproj`에 테스트 전용 패키지 1개 추가**를 「수정할 파일」에 반영하고, 시나리오 B의 "장치 사칭 불가" 테스트 범위를 확정했다(아래 「시나리오 B」).
+- 갱신 2: 2026-11-12 — 7-A 구현 중 developer 질의로 **`tests/NetSamLite.Server.Tests/NetSamLite.Server.Tests.csproj`에 테스트 전용 패키지 1개 추가**를 「수정할 파일」에 반영하고, 시나리오 B의 "장치 사칭 불가" 테스트 범위를 확정했다.
+- 갱신 3: 2026-11-12 — developer 지적을 반영해 **"메시지 바디의 `DeviceId` 위조" 단정을 7-A에서 7-B로 이동**했다. 7-A의 Hub에는 클라이언트→서버 메서드가 없어 위조할 입력 자체가 존재하지 않는다(아래 「시나리오 B」).
 - 대상 Phase: **Phase 7 (SignalR 실시간 채널)** — 신규 Phase 착수 작업
 - 담당 영역: `NetSamLite.Shared` (계약) / `NetSamLite.Server` (Hub·인증·연결 추적) / `NetSamLite.Agent` (연결·하트비트·수집 트리거) / `NetSamLite.Web` (상태 표시·버튼)
 - 브랜치(권장): `feature/2026-11-12-phase7-signalr`
@@ -133,9 +134,9 @@ public sealed record HeartbeatAck(int SchemaVersion, DateTime ServerTimeUtc);
 public sealed record CollectNowResult(int SchemaVersion, string CommandId, CollectNowOutcome Outcome, string? Detail);
 public enum CollectNowOutcome { Succeeded, AlreadyRunning, Failed }
 
-// 에이전트 → 서버 (AgentHub의 public 메서드 시그니처)
-//   Task<HeartbeatAck> SendHeartbeatAsync(HeartbeatMessage message)
-//   Task ReportCollectNowResultAsync(CollectNowResult result)
+// 에이전트 → 서버 (AgentHub의 public 메서드 시그니처) — 7-B/7-C에서 추가된다
+//   Task<HeartbeatAck> SendHeartbeatAsync(HeartbeatMessage message)        ← 7-B
+//   Task ReportCollectNowResultAsync(CollectNowResult result)              ← 7-C
 ```
 
 확정 사항 세부:
@@ -143,6 +144,7 @@ public enum CollectNowOutcome { Succeeded, AlreadyRunning, Failed }
 - **버전 필드는 각 메시지 record의 첫 필드 `int SchemaVersion`** 이다. 봉투(envelope)도, 별도 메서드 파라미터도 쓰지 않는다.
 - 수신 측은 **핸들러 진입 직후 `SchemaVersion`을 확인**하고, `AgentHubContract.CurrentSchemaVersion`과 다르면 처리하지 않고 경고 로그를 남긴다(구조적 로깅: `{DeviceId}`, `{Received}`, `{Expected}`).
 - `HeartbeatMessage.DeviceId`는 **로그·디버깅용 참고값일 뿐 신뢰하지 않는다.** 서버는 항상 인증 클레임의 `DeviceId`로 동작한다(아래 「범위 → 할 것 → 3」).
+  - **계약 타입은 7-A에 전부 만들지만, 그 타입을 받는 Hub 메서드는 7-B/7-C에서 추가된다.** 즉 **7-A의 `AgentHub`에는 클라이언트가 보내는 입력이 하나도 없다**(`OnConnectedAsync`/`OnDisconnectedAsync`는 인자가 없다). 이 사실이 시나리오 B의 테스트 범위를 결정한다(갱신 3).
 - 메시지 타입 추가 시(Phase 8 정책 push 등) `IAgentClient`에 메서드를 추가하고 record를 추가한다. 기존 메시지의 `SchemaVersion`은 건드리지 않는다 — **메시지별 독립 버전**이 이 설계안을 고른 핵심 이유다.
 
 <details>
@@ -197,15 +199,15 @@ public enum CollectNowOutcome { Succeeded, AlreadyRunning, Failed }
 
 #### 3. Hub + 연결 추적 (`NetSamLite.Server`)
 
-- `AgentHub : Hub<IAgentClient>` — `OnConnectedAsync`/`OnDisconnectedAsync`에서 **온라인 불값을 즉시 갱신**하고(확정 결정 5), 하트비트 메서드에서 `LastHeartbeatUtc`만 갱신한다.
-  - 연결의 `DeviceId`는 **클라이언트가 보낸 값이 아니라 인증된 클레임**에서 읽는다(인증 미비 시 임의 명령 주입 위험에 대한 직접적 대응 — 다른 장치를 사칭할 수 없다). 클레임에서 읽는 경로를 **단일 지점(`GetAuthenticatedDeviceId()`)으로 모아** 모든 Hub 메서드가 그것만 쓰게 한다. `HeartbeatMessage.DeviceId`는 참고값일 뿐이며, 클레임과 다르면 경고 로그를 남기고 **클레임 쪽을 쓴다**.
+- `AgentHub : Hub<IAgentClient>` — `OnConnectedAsync`/`OnDisconnectedAsync`에서 **온라인 불값을 즉시 갱신**하고(확정 결정 5), 하트비트 메서드(7-B)에서 `LastHeartbeatUtc`만 갱신한다.
+  - 연결의 `DeviceId`는 **클라이언트가 보낸 값이 아니라 인증된 클레임**에서 읽는다(인증 미비 시 임의 명령 주입 위험에 대한 직접적 대응 — 다른 장치를 사칭할 수 없다). 클레임에서 읽는 경로를 **단일 지점(`GetAuthenticatedDeviceId()`)으로 모아** 모든 Hub 메서드가 그것만 쓰게 한다. `HeartbeatMessage.DeviceId`는 참고값일 뿐이며, 클레임과 다르면 경고 로그를 남기고 **클레임 쪽을 쓴다**(7-B).
   - `Groups.AddToGroupAsync(deviceId)`로 장치별 그룹에 넣는다 → 같은 장치가 재연결로 `ConnectionId`가 바뀌어도 "그 장치로 보내기"가 유지된다.
   - 모든 수신 메서드는 진입 직후 `SchemaVersion`을 검사한다(확정 결정 7).
 - `DeviceConnectionTracker` — 연결/해제/하트비트를 DB에 반영하고 장치별 상태를 조회한다.
   - `RecordConnectedAsync(deviceId, connectionId)`: `IsOnline = true`, `LastConnectedAtUtc = now`, `LastHeartbeatUtc = now`, `ConnectionId` 갱신.
     - 연결 시점에 `LastHeartbeatUtc`도 같이 찍는 이유: 첫 하트비트가 오기까지(최대 60초) 화면의 "마지막 확인" 칸이 비어 보이는 것을 막는다.
   - `RecordDisconnectedAsync(deviceId)`: `IsOnline = false`, `LastDisconnectedAtUtc = now`.
-  - `RecordHeartbeatAsync(deviceId)`: **`LastHeartbeatUtc`만** 갱신한다. `IsOnline`을 건드리지 않는다.
+  - `RecordHeartbeatAsync(deviceId)` (7-B): **`LastHeartbeatUtc`만** 갱신한다. `IsOnline`을 건드리지 않는다.
   - `ListStatusesAsync()`: 장치별 `IsOnline` / `LastHeartbeatUtc` / `LastConnectedAtUtc`를 그대로 돌려준다. **파생 계산(타임아웃 판정)을 하지 않는다.**
   - 한 번도 Hub에 붙지 않은 장치는 `DeviceConnection` 행이 없다 → **오프라인으로 취급**하고 예외를 던지지 않는다(마이그레이션 직후 모든 기존 장치가 이 상태다).
 - DB: `DeviceTokenEntity`(DeviceId PK, TokenHash, IssuedAtUtc) + `DeviceConnectionEntity`(DeviceId PK, ConnectionId, **IsOnline**, LastConnectedAtUtc, LastHeartbeatUtc, LastDisconnectedAtUtc) 두 엔티티를 **파일 1개**에 둔다(기존 `DeviceEntity` + `DeviceDiskEntity`가 한 파일인 패턴과 동일). 마이그레이션 1개 추가.
@@ -331,7 +333,7 @@ Phase 8 이후로 미루거나 별도 작업으로 분리하는 것들이다.
 | 이벤트 | `IsOnline` | `LastConnectedAtUtc` | `LastHeartbeatUtc` | `LastDisconnectedAtUtc` |
 |---|---|---|---|---|
 | `OnConnectedAsync` | **true** | now | now | — |
-| 하트비트 수신 | **건드리지 않음** | — | now | — |
+| 하트비트 수신 (7-B) | **건드리지 않음** | — | now | — |
 | `OnDisconnectedAsync` | **false** | — | — | now |
 
 - 대시보드는 `IsOnline`을 **그대로** 표시한다. 시각 비교·파생 계산을 하지 않는다 → 화면 로직이 단순해지고, "왜 온라인으로 보이는가"가 DB 한 컬럼으로 설명된다.
@@ -348,14 +350,14 @@ Phase 8 이후로 미루거나 별도 작업으로 분리하는 것들이다.
 
 | 파일 | 할 일 |
 |---|---|
-| `src/NetSamLite.Shared/Hub/AgentHubContract.cs` **(신규)** | 확정 결정 7(설계안 A)의 코드 블록 그대로: `AgentHubContract`(`Path`, `CurrentSchemaVersion`), `IAgentClient`, `CollectNowCommand`, `HeartbeatMessage`, `HeartbeatAck`, `CollectNowResult`, `CollectNowOutcome`. 모든 메시지 record의 첫 필드는 `int SchemaVersion`. **패키지 참조 추가 금지** |
+| `src/NetSamLite.Shared/Hub/AgentHubContract.cs` **(신규)** | 확정 결정 7(설계안 A)의 코드 블록 그대로: `AgentHubContract`(`Path`, `CurrentSchemaVersion`), `IAgentClient`, `CollectNowCommand`, `HeartbeatMessage`, `HeartbeatAck`, `CollectNowResult`, `CollectNowOutcome`. 모든 메시지 record의 첫 필드는 `int SchemaVersion`. **패키지 참조 추가 금지**. (계약 타입은 전부 여기서 만들지만 그걸 받는 Hub 메서드는 7-B/7-C에서 추가된다) |
 | `src/NetSamLite.Server/Data/Entities/DeviceRealtimeEntities.cs` **(신규)** | `DeviceTokenEntity`(DeviceId PK, TokenHash, IssuedAtUtc) + `DeviceConnectionEntity`(DeviceId PK, ConnectionId, **IsOnline**, LastConnectedAtUtc, LastHeartbeatUtc, LastDisconnectedAtUtc). 한 파일에 둘 다(`DeviceEntity`+`DeviceDiskEntity` 패턴) |
 | `src/NetSamLite.Server/Data/NetSamLiteDbContext.cs` | `DbSet` 2개 추가 + `OnModelCreating`에 `HasKey(DeviceId)` 2건. **기존 엔티티 설정은 한 줄도 건드리지 않는다** |
 | `src/NetSamLite.Server/Migrations/*_AddDeviceRealtime.cs` **(신규, 생성물)** | `dotnet ef migrations add AddDeviceRealtime --project src/NetSamLite.Server` 로 생성. 손으로 쓰지 않는다. 생성된 `Up`이 **기존 테이블을 건드리지 않는지 반드시 눈으로 확인** |
 | `src/NetSamLite.Server/Realtime/DeviceTokenService.cs` **(신규)** | 토큰 생성(32바이트 난수 → Base64Url) · SHA-256 해시 저장 · 해시 대조 검증 · 재등록 시 해시 교체. 등록 비밀값 고정시간 비교(`CryptographicOperations.FixedTimeEquals`) |
 | `src/NetSamLite.Server/Realtime/DeviceTokenAuthenticationHandler.cs` **(신규)** | `"DeviceToken"` 스킴. `Authorization: Bearer` + `?access_token=` 둘 다 읽는다(WebSocket 핸드셰이크에 커스텀 헤더를 실을 수 없기 때문 — 주석에 이유 명시). 쿼리 허용은 Hub 경로에 한정 |
-| `src/NetSamLite.Server/Realtime/AgentHub.cs` **(신규)** | `Hub<IAgentClient>`. `[Authorize(AuthenticationSchemes = "DeviceToken")]`. `OnConnectedAsync`/`OnDisconnectedAsync`에서 `DeviceConnectionTracker` 호출(**온라인 불값 즉시 갱신**) + `Groups.AddToGroupAsync(deviceId)`. **DeviceId는 클라이언트 입력이 아니라 인증 클레임에서만 읽는다** — 읽는 경로를 `GetAuthenticatedDeviceId()` 한 곳으로 모은다 |
-| `src/NetSamLite.Server/Realtime/DeviceConnectionTracker.cs` **(신규)** | `RecordConnectedAsync`(`IsOnline=true`, 연결 시각 + `LastHeartbeatUtc` 동시 갱신) / `RecordDisconnectedAsync`(`IsOnline=false`) / `ListStatusesAsync`(DB 값을 **그대로** 반환, 타임아웃 파생 계산 없음) / 행이 없는 장치는 오프라인 취급. **하트비트 임계값 판정 로직을 넣지 않는다**(확정 결정 5) |
+| `src/NetSamLite.Server/Realtime/AgentHub.cs` **(신규)** | `Hub<IAgentClient>`. `[Authorize(AuthenticationSchemes = "DeviceToken")]`. **7-A에서는 `OnConnectedAsync`/`OnDisconnectedAsync`뿐**(둘 다 인자 없음 — 클라이언트 입력이 존재하지 않는다). `DeviceConnectionTracker` 호출(**온라인 불값 즉시 갱신**) + `Groups.AddToGroupAsync(deviceId)`. **DeviceId는 인증 클레임에서만 읽는다** — 읽는 경로를 `GetAuthenticatedDeviceId()` 한 곳으로 모은다 |
+| `src/NetSamLite.Server/Realtime/DeviceConnectionTracker.cs` **(신규)** | `RecordConnectedAsync`(`IsOnline=true`, 연결 시각 + `LastHeartbeatUtc` 동시 갱신) / `RecordDisconnectedAsync`(`IsOnline=false`) / `ListStatusesAsync`(DB 값을 **그대로** 반환, 타임아웃 파생 계산 없음) / 행이 없는 장치는 오프라인 취급. **하트비트 임계값 판정 로직을 넣지 않는다**(확정 결정 5). `RecordHeartbeatAsync`는 7-B |
 | `src/NetSamLite.Server/Program.cs` | `AddSignalR()`, `AddAuthentication().AddScheme<...DeviceTokenAuthenticationHandler>("DeviceToken")`, `AddAuthorization()`, `UseAuthentication()`/`UseAuthorization()`, `DeviceTokenService`/`DeviceConnectionTracker` DI 등록, `MapHub<AgentHub>(AgentHubContract.Path).RequireAuthorization(...)`, `POST /api/v1/devices/{deviceId}/enroll`. **기존 엔드포인트 11개는 익명 유지 — 한 줄도 건드리지 않는다** |
 | `src/NetSamLite.Agent/NetSamLite.Agent.csproj` | `Microsoft.AspNetCore.SignalR.Client` PackageReference 1줄 추가(버전은 다른 참조와 맞춰 `10.0.x`) |
 | `src/NetSamLite.Agent/Realtime/HubBackoffRetryPolicy.cs` **(신규)** | `IRetryPolicy` 구현. `min(base × 2^n, Max)` + jitter, **`null` 반환 금지**(= 영구 포기 금지). 순수 계산만 담아 단위 테스트 가능하게 |
@@ -366,7 +368,7 @@ Phase 8 이후로 미루거나 별도 작업으로 분리하는 것들이다.
 | `src/NetSamLite.Agent/Program.cs` | `RunAsService`에 `AgentHubWorker`/`DeviceTokenStore`/`HubBackoffRetryPolicy` DI 등록. **`RunOnce`는 건드리지 않는다. `AgentOptions` 중복 구성 리팩터링도 하지 않는다**(별 backlog 항목) |
 | `tests/NetSamLite.Server.Tests/NetSamLite.Server.Tests.csproj` | **(갱신 2에서 추가)** `Microsoft.AspNetCore.SignalR.Client` PackageReference **1줄만** 추가(버전 `10.0.x`, Mvc.Testing과 맞춤). **테스트 전용**이며 제품 코드(`NetSamLite.Server`)에는 추가하지 않는다 — 서버 쪽 SignalR은 공유 프레임워크에 이미 포함돼 있다. 이 패키지는 시나리오 B의 실제 Hub 연결 테스트에만 쓴다. 다른 패키지 버전·항목은 건드리지 않는다 |
 | `tests/NetSamLite.Server.Tests/Realtime/DeviceTokenServiceTests.cs` **(신규)** | 시나리오 A |
-| `tests/NetSamLite.Server.Tests/Realtime/DeviceTokenAuthTests.cs` **(신규)** | 시나리오 B |
+| `tests/NetSamLite.Server.Tests/Realtime/DeviceTokenAuthTests.cs` **(신규)** | 시나리오 B의 **7-A 범위**(negotiate 레벨 4개 + 연결 레벨 1개). 바디 위조 테스트는 7-B에서 이 클래스에 추가된다 |
 | `tests/NetSamLite.Agent.Tests/Realtime/HubBackoffRetryPolicyTests.cs` **(신규)** | 시나리오 C |
 | `tests/NetSamLite.Agent.Tests/Realtime/DeviceTokenStoreTests.cs` **(신규)** | 시나리오 D |
 
@@ -376,12 +378,13 @@ Phase 8 이후로 미루거나 별도 작업으로 분리하는 것들이다.
 
 | 파일 | 할 일 |
 |---|---|
-| `src/NetSamLite.Server/Realtime/AgentHub.cs` | `Task<HeartbeatAck> SendHeartbeatAsync(HeartbeatMessage message)` 추가. 진입 즉시 `SchemaVersion` 검사(불일치 시 처리 중단 + 경고 로그). 클레임의 `DeviceId`로 `RecordHeartbeatAsync` 호출 |
+| `src/NetSamLite.Server/Realtime/AgentHub.cs` | `Task<HeartbeatAck> SendHeartbeatAsync(HeartbeatMessage message)` 추가 — **Hub에 클라이언트 입력이 처음 생기는 지점**. 진입 즉시 `SchemaVersion` 검사(불일치 시 처리 중단 + 경고 로그). **`message.DeviceId`는 로그에만 쓰고, 기록은 `GetAuthenticatedDeviceId()`로** 한다. 둘이 다르면 경고 로그 |
 | `src/NetSamLite.Server/Realtime/DeviceConnectionTracker.cs` | `RecordHeartbeatAsync` 추가 — **`LastHeartbeatUtc`만 갱신하고 `IsOnline`은 건드리지 않는다**(확정 결정 5). `ListStatusesAsync`가 `IsOnline`/`LastHeartbeatUtc`를 함께 반환 |
 | `src/NetSamLite.Agent/Realtime/AgentHubWorker.cs` | `PeriodicTimer` 하트비트 루프(`HeartbeatIntervalSeconds`). 끊긴 동안 미전송, 재연결 후 재개. 응답 `HeartbeatAck`의 `SchemaVersion` 확인 |
 | `src/NetSamLite.Web/Program.cs` | `DeviceConnectionTracker` DI 등록(상태 읽기용). `ServerBaseUrl` 설정 읽어 `HttpClient` 등록(7-C에서 쓰지만 여기서 같이) |
 | `src/NetSamLite.Web/appsettings.json` | `ServerBaseUrl` 추가(비밀값 아님) |
 | `src/NetSamLite.Web/Components/Pages/Devices.razor` | `연결 상태`(= `IsOnline` 그대로) / `마지막 확인`(= `LastHeartbeatUtc`) 컬럼 2개 + `새로 고침` 버튼. 기존 컬럼·`FormatGigabytes`는 그대로 |
+| `tests/NetSamLite.Server.Tests/Realtime/DeviceTokenAuthTests.cs` | **(갱신 3)** 바디 위조 테스트 1개 추가 — `Hub_HeartbeatBodyClaimsAnotherDeviceId_RecordsClaimDeviceIdOnly`(시나리오 B 참조). 7-A에 만든 실제 연결 테스트 인프라를 재사용한다 |
 | `tests/NetSamLite.Server.Tests/Realtime/DeviceConnectionTrackerTests.cs` **(신규)** | 시나리오 F |
 
 ### 단계 7-C — "지금 수집"
@@ -391,7 +394,7 @@ Phase 8 이후로 미루거나 별도 작업으로 분리하는 것들이다.
 | `src/NetSamLite.Agent/Realtime/InventoryCollectionRunner.cs` **(신규)** | `SemaphoreSlim(1,1)`로 "수집→전송"을 한 번에 하나만. 이미 실행 중이면 대기 없이 `AlreadyRunning` 반환 |
 | `src/NetSamLite.Agent/AgentWorker.cs` | 수집·전송 호출부를 `InventoryCollectionRunner` 경유로 변경. **jitter·간격 클램프(`Math.Max(1, ...)`)·예외 처리·로그 메시지는 그대로**(기존 `AgentWorkerTests`가 이 동작을 검증 중) |
 | `src/NetSamLite.Agent/Realtime/AgentHubWorker.cs` | `CollectNowCommand` 핸들러 → `SchemaVersion` 검사 → `InventoryCollectionRunner` 호출 → `CollectNowResult` 회신(`CommandId` 그대로 되돌려 줌) |
-| `src/NetSamLite.Server/Realtime/AgentHub.cs` | `Task ReportCollectNowResultAsync(CollectNowResult result)` 추가 + 결과 구조적 로깅(`{DeviceId}`, `{CommandId}`, `{Outcome}`) |
+| `src/NetSamLite.Server/Realtime/AgentHub.cs` | `Task ReportCollectNowResultAsync(CollectNowResult result)` 추가 + 결과 구조적 로깅(`{DeviceId}`, `{CommandId}`, `{Outcome}`). `DeviceId`는 역시 클레임에서 |
 | `src/NetSamLite.Server/Program.cs` | `POST /api/v1/devices/{deviceId}/collect-now` — **① 루프백 아니면 403**(`IPAddress.IsLoopback`, `null`도 거부) ② 미등록 장치 404 ③ 오프라인 409 ④ 전송 성공 202. 루프백 체크를 **가장 먼저** 수행(장치 존재 여부를 외부에 노출하지 않기 위해) |
 | `src/NetSamLite.Web/Components/Pages/Devices.razor` | `지금 수집` 버튼 + 결과 메시지(202/409/403/404 각각 사람이 읽을 문구로). 버튼은 오프라인 장치에서 비활성화 |
 | `tests/NetSamLite.Agent.Tests/Realtime/InventoryCollectionRunnerTests.cs` **(신규)** | 시나리오 E |
@@ -406,7 +409,7 @@ Phase 8 이후로 미루거나 별도 작업으로 분리하는 것들이다.
 | `docs/learning-log.md` | 「학습 정리」 트리거 형식대로 이번에 새로 배운 개념을 날짜와 함께 추가(강타입 Hub와 메시지별 `SchemaVersion`, `IRetryPolicy`와 "초기 연결은 자동 재연결 대상이 아니다", WebSocket 핸드셰이크의 헤더 제약과 `access_token` 쿼리, 고엔트로피 토큰에 SHA-256이 충분한 이유, `OnDisconnectedAsync`가 **클라이언트 단절에는 동작하지만 서버 크래시에는 동작하지 않는** 이유와 그 트레이드오프, `IPAddress.IsLoopback`으로 운영자 엔드포인트를 제한하는 패턴, **TestServer에 `HubConnection`을 LongPolling으로 붙이는 방법**) |
 | `CLAUDE.md` | Phase 7 완료 후 「진행 단계」 표의 "현재" 표시를 Phase 8로 옮긴다. **Phase 7이 끝나기 전에는 건드리지 않는다** |
 
-**합계: 신규 16개 + 수정 12개 = 28개 파일**(마이그레이션 생성물 포함). 「절대 규칙 7」에 따라 **이 기획서가 사전 승인 문서**이며, 단계 7-A/7-B/7-C마다 빌드·테스트 통과를 확인하고 넘어간다.
+**합계: 신규 16개 + 수정 12개 = 28개 파일**(마이그레이션 생성물 포함. `DeviceTokenAuthTests.cs`는 7-A에서 신규 생성하고 7-B에서 테스트 1개를 추가하므로 중복 계수하지 않는다). 「절대 규칙 7」에 따라 **이 기획서가 사전 승인 문서**이며, 단계 7-A/7-B/7-C마다 빌드·테스트 통과를 확인하고 넘어간다.
 
 ---
 
@@ -435,12 +438,14 @@ Phase 8 이후로 미루거나 별도 작업으로 분리하는 것들이다.
 1. `NetSamLite.Shared`의 `.csproj`에 **PackageReference가 여전히 0개**다. `IAgentClient`와 메시지 타입이 SignalR 타입을 참조하지 않는다.
 2. **모든 Hub 메시지 record의 첫 필드가 `int SchemaVersion`** 이고(설계안 A), 양쪽의 모든 수신 핸들러가 **진입 직후 버전을 검사**한다. 버전 불일치 시 처리하지 않고 경고 로그를 남긴다.
 3. `NetSamLite.Agent`가 `NetSamLite.Server`를, `NetSamLite.Server`가 `NetSamLite.Agent`를 **참조하지 않는다**(`grep`으로 `.csproj` 확인). 의존 방향 `Agent → Shared ← Server ← Web` 유지. **`NetSamLite.Server`(제품) 쪽에 SignalR 패키지가 추가되지 않았다**(공유 프레임워크로 충분) — 새 패키지는 `NetSamLite.Agent`와 `NetSamLite.Server.Tests` **두 곳에만** 들어간다.
-4. `AgentHub`의 어떤 메서드도 **클라이언트가 보낸 `DeviceId`를 신뢰하지 않는다** — 모든 경로가 `GetAuthenticatedDeviceId()`(= `Context.User`의 클레임)만 쓴다. `grep`으로 Hub 안에 `message.DeviceId`를 **로그 외의 용도로** 쓰는 곳이 없음을 확인한다. **이 불변식은 시나리오 B의 실제 연결 테스트로 고정된다**(code-reviewer도 함께 확인).
+4. `AgentHub`의 어떤 메서드도 **클라이언트가 보낸 `DeviceId`를 신뢰하지 않는다** — 모든 경로가 `GetAuthenticatedDeviceId()`(= `Context.User`의 클레임)만 쓴다.
+   - **7-A 시점**: Hub에 클라이언트 입력이 아직 없으므로(`OnConnectedAsync`/`OnDisconnectedAsync`는 인자가 없다), 연결이 **인증 클레임의 `DeviceId`로만** 기록되는지를 시나리오 B의 실제 연결 테스트(`Hub_ConnectedWithDeviceBToken_RecordsOnlyDeviceBOnline`)로 확인한다.
+   - **7-B/7-C 시점**: `SendHeartbeatAsync`/`ReportCollectNowResultAsync`가 추가된 뒤 `grep`으로 Hub 안에서 `message.DeviceId`를 **로그 외의 용도로** 쓰는 곳이 없음을 확인하고, 시나리오 B의 바디 위조 테스트(`Hub_HeartbeatBodyClaimsAnotherDeviceId_RecordsClaimDeviceIdOnly`)가 통과한다. (code-reviewer도 함께 확인)
 5. 서버 DB에 **토큰 평문이 존재하지 않는다**: 등록 후 `DeviceTokens` 테이블을 조회해 `TokenHash`가 발급된 토큰 문자열과 다름을 확인한다.
 6. **로그에 토큰이 남지 않는다**: 에이전트 로그 파일과 서버 콘솔 출력을 발급된 토큰 문자열로 검색해 0건.
 7. `IAgentClient`에 선언된 메서드가 **조회성 명령뿐**이다 — 프로세스 종료/방화벽/레지스트리 쓰기/서비스 제어에 해당하는 메서드가 하나도 없다(「절대 규칙 2」).
 8. `HubBackoffRetryPolicy.NextRetryDelay`가 **어떤 입력에도 `null`을 반환하지 않는다**(= 영구 포기 없음, 확정 결정 4).
-9. **`DeviceConnectionTracker`에 시각 비교로 온라인을 추론하는 코드가 없다**(확정 결정 5). `IsOnline`을 바꾸는 곳은 `RecordConnectedAsync`와 `RecordDisconnectedAsync` **두 곳뿐**이고, `RecordHeartbeatAsync`는 `IsOnline`을 건드리지 않는다. (code-reviewer가 명시적으로 확인할 항목)
+9. **`DeviceConnectionTracker`에 시각 비교로 온라인을 추론하는 코드가 없다**(확정 결정 5). `IsOnline`을 바꾸는 곳은 `RecordConnectedAsync`와 `RecordDisconnectedAsync` **두 곳뿐**이고, `RecordHeartbeatAsync`(7-B)는 `IsOnline`을 건드리지 않는다. (code-reviewer가 명시적으로 확인할 항목)
 10. `Server/Program.cs`의 **기존 엔드포인트 11개 중 어느 것도 인증이 필요해지지 않았다** — 기존 Server 테스트 167개가 인증 관련 수정 없이 통과하는 것으로 확인된다.
 11. `collect-now` 핸들러에서 **루프백 체크가 다른 모든 검사보다 먼저** 실행된다(비루프백 호출자가 404/409로 장치 존재 여부를 알아낼 수 없다).
 
@@ -474,7 +479,7 @@ CLAUDE.md 「Phase 7~10 위험 요소·테스트 방법」표의 Phase 7 행에 
 
 단위/통합 테스트. 테스트 이름은 `메서드_상황_기대결과` 규칙을 따르고, Server 쪽은 기존 `SqliteTestDatabase`(실제 SQLite `:memory:`) 패턴을, Agent 쪽은 기존 가짜 구현(`FakeInventorySender` 등) 패턴을 재사용한다. **레지스트리/WMI에 직접 의존하는 테스트는 만들지 않는다.**
 
-### A. 장치 토큰 — `tests/NetSamLite.Server.Tests/Realtime/DeviceTokenServiceTests.cs`
+### A. 장치 토큰 — `tests/NetSamLite.Server.Tests/Realtime/DeviceTokenServiceTests.cs` (7-A)
 
 | 구분 | 테스트 | 내용 |
 |---|---|---|
@@ -489,27 +494,36 @@ CLAUDE.md 「Phase 7~10 위험 요소·테스트 방법」표의 Phase 7 행에 
 
 기존 `WebApplicationFactory<TestEntryPoint>` 패턴(`InventoryEndpointTests` 등)을 재사용한다.
 
-**갱신 2에서 확정된 범위**: 아래 표의 앞 3개는 **negotiate 레벨 HTTP 호출**로 검증하고(순수 `HttpClient`), 마지막 `Hub_WithTokenOfAnotherDevice_CannotActAsThatDevice`는 **실제 `HubConnection`으로 연결을 맺어** `OnConnectedAsync`까지 돌려 검증한다. 이를 위해 `NetSamLite.Server.Tests.csproj`에 **테스트 전용 `Microsoft.AspNetCore.SignalR.Client`** 를 추가한다(「수정할 파일」 7-A 참조).
+**갱신 2에서 확정된 것**: 아래 negotiate 레벨 테스트 4개는 순수 `HttpClient`로 검증하고, 연결 레벨 테스트는 **실제 `HubConnection`으로 연결을 맺어** `OnConnectedAsync`까지 돌려 검증한다. 이를 위해 `NetSamLite.Server.Tests.csproj`에 **테스트 전용 `Microsoft.AspNetCore.SignalR.Client`** 를 추가한다(「수정할 파일」 7-A 참조).
 
-- **왜 negotiate 레벨로만 끝내지 않는가**: `collect-now`를 포함한 Phase 7의 보안 모델 전체가 **"서버는 클레임의 `DeviceId`만 믿는다"** 는 단 하나의 불변식 위에 서 있다(CLAUDE.md Phase 7 위험 요소의 "인증 미비 시 임의 명령 주입"에 직접 대응). negotiate 응답은 200/401만 알려 주므로 **그 불변식을 전혀 건드리지 못한다.** "토큰 → 클레임 → Hub가 그 클레임으로 기록" 체인이 실제로 이어지는지는 연결이 성립해 봐야 알 수 있다.
-- **`DeviceConnectionTracker` 단위 테스트로 대체할 수 없는 이유**: 그 테스트는 "`RecordConnectedAsync`에 넘긴 `deviceId`가 그대로 저장되는가"를 보는 것이고, **"`AgentHub`가 무엇을 넘기는가"** 는 보지 않는다. 즉 불변식이 깨지는 바로 그 지점(Hub가 메시지 바디의 `DeviceId`를 쓰는 실수)을 잡아내지 못한다.
-- **TestServer에 `HubConnection`을 붙이는 방법**(developer 시간 절약용 메모):
-  - 전송은 **LongPolling으로 고정**한다 — `TestServer`는 실제 TCP 소켓을 열지 않아 WebSocket 핸드셰이크가 되지 않는다.
-  - `o.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();` 로 TestServer의 핸들러를 끼운다.
-  - `o.Transports = HttpTransportType.LongPolling;`, `o.AccessTokenProvider = () => Task.FromResult<string?>(token);`
-  - URL은 `factory.Server.BaseAddress`에 `AgentHubContract.Path`를 붙인다.
-  - 이 테스트는 성격상 **통합 테스트**라 단위 테스트보다 느리다. 1~2개만 두고, 나머지는 negotiate 레벨/단위 테스트로 커버한다.
-- **대안 경로(만약 TestServer + `HubConnection` 조합이 환경 문제로 끝까지 동작하지 않으면)**: 패키지를 추가하지 말고, `AgentHub`를 **직접 인스턴스화해 단위 테스트**한다 — 가짜 `HubCallerContext`(클레임이 담긴 `ClaimsPrincipal`과 임의 `ConnectionId`)와 가짜 `IGroupManager`를 주입하고, `SendHeartbeatAsync(new HeartbeatMessage(..., DeviceId: "OTHER-DEVICE", ...))`를 호출해 **tracker에 기록된 값이 클레임 쪽 `DeviceId`인지** 단정한다. 이 경로도 불변식을 직접 고정하므로 허용된다. **단, "tracker 단위 테스트 + 코드 리뷰"로만 대체하는 것은 허용하지 않는다**(위 이유). 어느 경로를 택했는지 테스트 클래스 주석에 한 줄 남긴다.
+**갱신 3에서 수정된 것 — 7-A와 7-B로 분리**: 갱신 2는 7-A의 연결 테스트를 "B의 토큰으로 연결한 뒤 **메시지 바디에 `DeviceId = "A"`** 를 담아 보낸다"고 적었으나, **7-A의 `AgentHub`에는 `OnConnectedAsync`/`OnDisconnectedAsync`뿐이고 둘 다 인자가 없어 위조할 바디 자체가 존재하지 않는다.** 클라이언트→서버 메서드(`SendHeartbeatAsync`)는 7-B에서 생긴다. 따라서:
 
-| 구분 | 테스트 | 내용 |
-|---|---|---|
-| **정상** | `Hub_WithValidTokenInAuthorizationHeader_Authenticates` | `Authorization: Bearer <토큰>`으로 negotiate 요청이 통과한다(200) |
-| **정상** | `Hub_WithValidTokenInAccessTokenQueryString_Authenticates` | `?access_token=<토큰>`으로도 통과한다(WebSocket 전송 경로 등가성) |
-| **경계** | `ExistingAnonymousEndpoints_WithoutToken_StillReturnSuccess` | `/api/v1/devices`, `/api/v1/licenses` 등 **기존 엔드포인트는 토큰 없이도 그대로 동작**한다(인증 도입이 기존 계약을 깨지 않았다는 회귀 테스트) |
-| **예외** | `Hub_WithoutToken_Returns401` | 토큰 없이 Hub에 붙으면 401 |
-| **예외** | `Hub_WithTokenOfAnotherDevice_CannotActAsThatDevice` | **실제 연결 테스트.** 장치 A·B를 등록하고 **B의 토큰으로** 연결한 뒤, 메시지 바디에는 `DeviceId = "A"`를 담아 보낸다. 검증: `DeviceConnection` 테이블에 **B만** 온라인으로 기록되고 **A는 기록되지 않는다**(행이 없거나 오프라인). = 클레임 기반 `DeviceId`의 핵심 보증 |
+- **7-A** — 연결 레벨까지만 검증한다. 장치 A·B를 등록하고 **B의 토큰으로만** 연결한 뒤, `ListStatusesAsync()`에서 **B만** 온라인으로 기록되고 **A는 기록되지 않음**을 확인한다. 이것으로 `OnConnectedAsync`가 **클레임의 `DeviceId`만 쓴다**(= URL·헤더·쿼리의 다른 값으로 다른 장치가 되지 않는다)는 사실이 고정된다.
+- **7-B** — `SendHeartbeatAsync`가 추가되는 시점에 **바디 위조 테스트를 이 클래스에 추가**한다(7-A에서 만든 실제 연결 인프라를 재사용). 이때가 "메시지 바디의 `DeviceId`를 무시한다"를 검증할 수 있는 **최초 시점**이다.
 
-### C. 재연결 정책 — `tests/NetSamLite.Agent.Tests/Realtime/HubBackoffRetryPolicyTests.cs`
+**왜 negotiate 레벨로만 끝내지 않는가**: Phase 7의 보안 모델 전체가 **"서버는 클레임의 `DeviceId`만 믿는다"** 는 단 하나의 불변식 위에 서 있다(CLAUDE.md Phase 7 위험 요소의 "인증 미비 시 임의 명령 주입"에 직접 대응). negotiate 응답은 200/401만 알려 주므로 **그 불변식을 전혀 건드리지 못한다.** "토큰 → 클레임 → Hub가 그 클레임으로 기록" 체인이 실제로 이어지는지는 연결이 성립해 봐야 알 수 있다.
+
+**`DeviceConnectionTracker` 단위 테스트로 대체할 수 없는 이유**: 그 테스트는 "`RecordConnectedAsync`에 넘긴 `deviceId`가 그대로 저장되는가"를 보는 것이고, **"`AgentHub`가 무엇을 넘기는가"** 는 보지 않는다. 즉 불변식이 깨지는 바로 그 지점을 잡아내지 못한다.
+
+**TestServer에 `HubConnection`을 붙이는 방법**(시간 절약용 메모):
+- 전송은 **LongPolling으로 고정**한다 — `TestServer`는 실제 TCP 소켓을 열지 않아 WebSocket 핸드셰이크가 되지 않는다.
+- `o.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();` 로 TestServer의 핸들러를 끼운다.
+- `o.Transports = HttpTransportType.LongPolling;`, `o.AccessTokenProvider = () => Task.FromResult<string?>(token);`
+- URL은 `factory.Server.BaseAddress`에 `AgentHubContract.Path`를 붙인다.
+- 이 테스트는 성격상 **통합 테스트**라 단위 테스트보다 느리다. **7-A에 1개, 7-B에 1개**만 두고 나머지는 negotiate 레벨/단위 테스트로 커버한다.
+
+**대안 경로(만약 TestServer + `HubConnection` 조합이 환경 문제로 끝까지 동작하지 않으면)**: 패키지를 되돌리고, `AgentHub`를 **직접 인스턴스화해 단위 테스트**한다 — 가짜 `HubCallerContext`(클레임이 담긴 `ClaimsPrincipal`과 임의 `ConnectionId`)와 가짜 `IGroupManager`를 주입하고 `OnConnectedAsync()`(7-A) / `SendHeartbeatAsync(...)`(7-B)를 호출해 tracker에 기록된 값이 클레임 쪽 `DeviceId`인지 단정한다. 이 경로도 불변식을 직접 고정하므로 허용된다. **단, "tracker 단위 테스트 + 코드 리뷰"로만 대체하는 것은 허용하지 않는다**(위 이유). 어느 경로를 택했는지 테스트 클래스 주석에 한 줄 남긴다.
+
+| 단계 | 구분 | 테스트 | 내용 |
+|---|---|---|---|
+| 7-A | **정상** | `Hub_WithValidTokenInAuthorizationHeader_Authenticates` | `Authorization: Bearer <토큰>`으로 negotiate 요청이 통과한다(200) |
+| 7-A | **정상** | `Hub_WithValidTokenInAccessTokenQueryString_Authenticates` | `?access_token=<토큰>`으로도 통과한다(WebSocket 전송 경로 등가성) |
+| 7-A | **경계** | `ExistingAnonymousEndpoints_WithoutToken_StillReturnSuccess` | `/api/v1/devices`, `/api/v1/licenses` 등 **기존 엔드포인트는 토큰 없이도 그대로 동작**한다(인증 도입이 기존 계약을 깨지 않았다는 회귀 테스트) |
+| 7-A | **예외** | `Hub_WithoutToken_Returns401` | 토큰 없이 Hub에 붙으면 401 |
+| 7-A | **예외** | `Hub_ConnectedWithDeviceBToken_RecordsOnlyDeviceBOnline` | **실제 연결 테스트.** 장치 A·B를 등록하고 **B의 토큰으로** `HubConnection`을 연결한다. 검증: `ListStatusesAsync()`에서 **B만 온라인**이고 **A는 기록 없음(또는 오프라인)**. = `OnConnectedAsync`가 클레임의 `DeviceId`만 쓴다는 보증 |
+| **7-B** | **예외** | `Hub_HeartbeatBodyClaimsAnotherDeviceId_RecordsClaimDeviceIdOnly` | **(갱신 3에서 7-A → 7-B로 이동)** B의 토큰으로 연결한 뒤 `SendHeartbeatAsync(new HeartbeatMessage(SchemaVersion, DeviceId: "DEV-A", ...))` 로 **바디에 다른 장치 ID를 담아** 보낸다. 검증: **B의 `LastHeartbeatUtc`만 갱신**되고 **A는 아무 변화 없음**(행 없음 또는 `LastHeartbeatUtc` 미변경). 서버 로그에 클레임 불일치 경고가 남는다 |
+
+### C. 재연결 정책 — `tests/NetSamLite.Agent.Tests/Realtime/HubBackoffRetryPolicyTests.cs` (7-A)
 
 | 구분 | 테스트 | 내용 |
 |---|---|---|
@@ -520,7 +534,7 @@ CLAUDE.md 「Phase 7~10 위험 요소·테스트 방법」표의 Phase 7 행에 
 | **예외** | `NextRetryDelay_AnyRetryCount_NeverReturnsNull` | **어떤 입력에도 `null`을 반환하지 않는다** — 확정 결정 4(영구 포기 금지)를 테스트로 못박는다 |
 | **예외** | `NextRetryDelay_ZeroOrNegativeConfiguredDelays_ClampsToMinimum` | `ReconnectBaseDelaySeconds`가 0이나 음수로 설정돼도(기존 `AgentWorker`의 `Math.Max(1, ...)` 방어와 같은 성질) 예외 없이 최솟값으로 클램프된다 |
 
-### D. 토큰 저장소 — `tests/NetSamLite.Agent.Tests/Realtime/DeviceTokenStoreTests.cs`
+### D. 토큰 저장소 — `tests/NetSamLite.Agent.Tests/Realtime/DeviceTokenStoreTests.cs` (7-A)
 
 기존 `PendingReportQueueTests`의 임시 디렉터리 패턴을 재사용한다.
 
@@ -531,7 +545,7 @@ CLAUDE.md 「Phase 7~10 위험 요소·테스트 방법」표의 Phase 7 행에 
 | **경계** | `GetOrEnrollAsync_EmptyOrWhitespaceTokenFile_TreatsAsMissingAndEnrolls` | 빈 파일/공백만 있는 파일을 "없음"으로 취급해 재등록한다(`PendingReportQueue`의 "읽을 수 없는 파일은 건너뛴다" 가드와 같은 성질) |
 | **예외** | `GetOrEnrollAsync_EnrollmentFails_ThrowsOrReturnsNullWithoutWritingFile` | enroll이 실패하면 **쓰레기 토큰 파일을 만들지 않는다**(다음 시도에서 깨진 토큰으로 영구히 401 나는 상황 방지) |
 
-### E. 수집 직렬화 — `tests/NetSamLite.Agent.Tests/Realtime/InventoryCollectionRunnerTests.cs`
+### E. 수집 직렬화 — `tests/NetSamLite.Agent.Tests/Realtime/InventoryCollectionRunnerTests.cs` (7-C)
 
 | 구분 | 테스트 | 내용 |
 |---|---|---|
@@ -541,7 +555,7 @@ CLAUDE.md 「Phase 7~10 위험 요소·테스트 방법」표의 Phase 7 행에 
 | **예외** | `TryRunAsync_CollectorThrows_ReleasesSemaphoreAndReturnsFailed` | 수집기가 예외를 던져도 **세마포가 영구 점유되지 않는다**(이후 호출이 `AlreadyRunning`에 영원히 걸리지 않는다). 결과는 `Failed` |
 | **예외** | `TryRunAsync_Cancelled_DoesNotLeaveSemaphoreHeld` | `CancellationToken` 취소 시에도 세마포가 해제된다 |
 
-### F. 연결 상태 추적 — `tests/NetSamLite.Server.Tests/Realtime/DeviceConnectionTrackerTests.cs`
+### F. 연결 상태 추적 — `tests/NetSamLite.Server.Tests/Realtime/DeviceConnectionTrackerTests.cs` (7-B)
 
 **확정 결정 5(이벤트 기반)로 전면 교체된 시나리오다.** 하트비트 타임아웃 경계를 검증하던 초안의 두 테스트(`ListStatuses_HeartbeatExactlyAtTimeoutBoundary_IsOffline`, `ListStatuses_StaleConnectionRowWithoutDisconnect_IsOffline`)는 새 설계에서 **성립하지 않으므로 제거**하고, 대신 **"하트비트는 온라인 불값을 바꾸지 않는다"** 와 **"stale 행은 알려진 한계다"** 를 고정하는 테스트로 바꾼다.
 
@@ -555,7 +569,9 @@ CLAUDE.md 「Phase 7~10 위험 요소·테스트 방법」표의 Phase 7 행에 
 | **경계** | `NoDisconnectEvent_DeviceStaysOnlineForever_KnownLimitation` | 연결 기록만 있고 해제 이벤트가 없는(서버 크래시 재현) 행은 시간이 얼마나 지나도 온라인으로 남는다. **이것이 버그가 아니라 문서화된 트레이드오프**임을 테스트와 주석으로 명시한다(「알려진 한계」 링크) |
 | **예외** | `ListStatusesAsync_DeviceWithInventoryButNeverConnected_IsOfflineNotMissing` | 수집은 됐지만 Hub에 한 번도 붙지 않은 장치(`DeviceConnection` 행 없음)가 **예외 없이** 오프라인으로 표시된다(기존 장치 목록이 깨지지 않는다 — 마이그레이션 직후 모든 장치가 이 상태다) |
 
-### G. "지금 수집" 엔드포인트 — `tests/NetSamLite.Server.Tests/Realtime/CollectNowEndpointTests.cs`
+> 7-A에서 `DeviceConnectionTracker`의 연결/해제 경로를 먼저 구현하지만, 이 테스트 클래스는 `RecordHeartbeatAsync`가 생기는 **7-B에 한 번에** 작성한다. 7-A 시점의 연결/해제 동작은 시나리오 B의 실제 연결 테스트가 커버한다.
+
+### G. "지금 수집" 엔드포인트 — `tests/NetSamLite.Server.Tests/Realtime/CollectNowEndpointTests.cs` (7-C)
 
 `IHubContext`는 테스트 대역으로 교체하고, 원격 IP는 `WebApplicationFactory`의 서버 기능(또는 요청 파이프라인에 `RemoteIpAddress`를 설정하는 테스트용 미들웨어)으로 조작한다.
 
@@ -589,3 +605,4 @@ CLAUDE.md 「Phase 7~10 위험 요소·테스트 방법」표의 Phase 7 행에 
 | 날짜 | 질의 | 결론 |
 |---|---|---|
 | 2026-11-12 | 7-A 시나리오 B의 "장치 사칭 불가"를 실제 Hub 연결로 검증하려면 `NetSamLite.Server.Tests.csproj`에 `Microsoft.AspNetCore.SignalR.Client`가 필요한데, 기획서 파일 목록에 없음 (developer) | **패키지 추가 승인**(테스트 전용 1줄). 「수정할 파일」 7-A에 `NetSamLite.Server.Tests.csproj` 행을 추가하고 파일 수를 27 → 28로 갱신. negotiate 레벨 검증만으로 축소하는 안은 **채택하지 않음** — "서버는 클레임의 `DeviceId`만 믿는다"는 불변식을 negotiate 응답으로는 검증할 수 없고, tracker 단위 테스트는 "Hub가 무엇을 넘기는가"를 보지 못한다. TestServer 환경 문제로 실제 연결이 끝까지 안 되면 **가짜 `HubCallerContext`로 `AgentHub`를 직접 단위 테스트**하는 대안 경로를 허용(시나리오 B 참조) |
+| 2026-11-12 | 위 승인에 적은 단정("바디에 `DeviceId=A`를 담아 보낸다")은 클라이언트→서버 메서드가 있어야 가능하고 그건 7-B 범위다. 7-A의 Hub는 `OnConnectedAsync`/`OnDisconnectedAsync`뿐이라 위조할 입력 자체가 없음 (developer) | **지적이 맞다 — 기획서를 수정했다(갱신 3).** 7-A의 연결 레벨 테스트는 `Hub_ConnectedWithDeviceBToken_RecordsOnlyDeviceBOnline`(B 토큰으로 연결 → B만 온라인, A는 기록 없음)으로 확정하고, **바디 위조 테스트는 7-B로 이동**해 `Hub_HeartbeatBodyClaimsAnotherDeviceId_RecordsClaimDeviceIdOnly`로 `DeviceTokenAuthTests.cs`에 추가한다(7-A의 연결 인프라 재사용). 「완료 기준」 4번도 7-A 시점과 7-B/7-C 시점으로 나눠 기술. 「수정할 파일」 7-B에 해당 테스트 파일 행 추가. 계약 섹션에도 "계약 타입은 7-A에 다 만들지만 그걸 받는 Hub 메서드는 7-B/7-C에서 생긴다"를 명시 |
