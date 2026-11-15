@@ -224,6 +224,47 @@ public sealed class DeviceTokenAuthTests : IClassFixture<RealtimeApiFactory>
             await connection.DisposeAsync();
         }
     }
+
+    /// <summary>
+    /// 완료 기준 2번("모든 수신 핸들러가 진입 직후 SchemaVersion을 검사하고, 불일치 시
+    /// 처리하지 않는다")을 하트비트 경로에서 고정한다. AgentHub.SendHeartbeatAsync는 버전이
+    /// 다르면 tracker.RecordHeartbeatAsync를 호출하지 않고 경고만 남긴 채 ack만 돌려준다 —
+    /// ack 자체는 항상 온다(클라이언트가 응답을 못 받아 블로킹되지 않도록).
+    /// </summary>
+    [Fact]
+    public async Task Hub_HeartbeatWithWrongSchemaVersion_DoesNotUpdateLastHeartbeatButStillReturnsAck()
+    {
+        var deviceId = $"DEV-{Guid.NewGuid()}";
+        var token = await EnrollAsync(deviceId);
+        var connection = BuildConnection(headerToken: token);
+
+        try
+        {
+            await connection.StartAsync();
+
+            using var scope = _factory.Services.CreateScope();
+            var tracker = scope.ServiceProvider.GetRequiredService<DeviceConnectionTracker>();
+            var connectedStatuses = await PollUntilAsync(
+                () => tracker.ListStatusesAsync(CancellationToken.None),
+                s => s.Any(x => x.DeviceId == deviceId && x.IsOnline));
+            var beforeHeartbeat = connectedStatuses.Single(s => s.DeviceId == deviceId).LastHeartbeatUtc;
+
+            await Task.Delay(50);
+            var message = new HeartbeatMessage(
+                SchemaVersion: AgentHubContract.CurrentSchemaVersion + 999,
+                DeviceId: deviceId, AgentVersion: "test-agent", SentAtUtc: DateTime.UtcNow);
+            var ack = await connection.InvokeAsync<HeartbeatAck>("SendHeartbeatAsync", message);
+
+            ack.SchemaVersion.Should().Be(AgentHubContract.CurrentSchemaVersion);
+            var statuses = await tracker.ListStatusesAsync(CancellationToken.None);
+            var status = statuses.Should().ContainSingle(s => s.DeviceId == deviceId).Subject;
+            status.LastHeartbeatUtc.Should().Be(beforeHeartbeat);
+        }
+        finally
+        {
+            await connection.DisposeAsync();
+        }
+    }
 }
 
 /// <summary>
