@@ -97,6 +97,9 @@ static int RunAsService(string[] args)
         client.BaseAddress = new Uri(agentOptions.ServerBaseUrl);
     });
 
+    // AgentWorker(주기 수집)와 AgentHubWorker(지금 수집 명령)가 같은 세마포 인스턴스를
+    // 공유해야 하므로 싱글톤으로 등록한다 — 둘 중 하나가 새 인스턴스를 만들면 직렬화가 깨진다.
+    builder.Services.AddSingleton<InventoryCollectionRunner>();
     builder.Services.AddHostedService<AgentWorker>();
 
     builder.Services.AddHttpClient<IDeviceEnrollmentClient, HttpDeviceEnrollmentClient>((sp, client) =>

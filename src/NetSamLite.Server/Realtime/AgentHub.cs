@@ -61,6 +61,26 @@ public sealed class AgentHub(DeviceConnectionTracker tracker, ILogger<AgentHub> 
         return new HeartbeatAck(AgentHubContract.CurrentSchemaVersion, DateTime.UtcNow);
     }
 
+    /// <summary>
+    /// 에이전트가 "지금 수집" 실행 결과를 보고한다. DeviceId도 인증 클레임에서만 읽어
+    /// 구조적 로그에 남긴다 — 감사 로그 이중 기록(서버+로컬 파일)은 Phase 8에서 다룬다.
+    /// </summary>
+    public Task ReportCollectNowResultAsync(CollectNowResult result)
+    {
+        if (result.SchemaVersion != AgentHubContract.CurrentSchemaVersion)
+        {
+            logger.LogWarning(
+                "CollectNowResult SchemaVersion 불일치, 처리하지 않음: 수신={Received}, 기대={Expected}",
+                result.SchemaVersion, AgentHubContract.CurrentSchemaVersion);
+            return Task.CompletedTask;
+        }
+
+        var deviceId = GetAuthenticatedDeviceId();
+        logger.LogInformation(
+            "지금 수집 결과 수신: {DeviceId}, {CommandId}, {Outcome}", deviceId, result.CommandId, result.Outcome);
+        return Task.CompletedTask;
+    }
+
     private string GetAuthenticatedDeviceId() =>
         Context.User?.FindFirstValue(ClaimTypes.NameIdentifier)
         ?? throw new InvalidOperationException("인증된 DeviceId 클레임이 없는 연결입니다.");

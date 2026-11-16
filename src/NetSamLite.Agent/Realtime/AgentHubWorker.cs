@@ -9,7 +9,8 @@ namespace NetSamLite.Agent.Realtime;
 
 /// <summary>
 /// 서버 Hub(AgentHubContract.Path)에 상시 연결을 유지하고 PeriodicTimer로 주기 하트비트를
-/// 보낸다(7-B). 명령 수신 핸들러는 7-C에서 추가된다.
+/// 보내며(7-B), 서버가 보내는 CollectNowCommand를 받아 InventoryCollectionRunner로
+/// 실행한 뒤 결과를 회신한다(7-C).
 ///
 /// WithAutomaticReconnect는 "이미 성립한 연결이 끊긴 경우"만 다시 붙여준다 — StartAsync
 /// 자체가 처음부터 실패하면(서버가 아직 안 떠 있음, 서비스 자동 시작에서 매우 흔한 상황)
@@ -20,6 +21,7 @@ public sealed class AgentHubWorker(
     IHardwareCollector hardwareCollector,
     DeviceTokenStore tokenStore,
     HubBackoffRetryPolicy retryPolicy,
+    InventoryCollectionRunner collectionRunner,
     IOptions<AgentOptions> options,
     ILogger<AgentHubWorker> logger) : BackgroundService
 {
@@ -112,6 +114,7 @@ public sealed class AgentHubWorker(
 
                 connection = BuildConnection(token);
                 RegisterLifecycleLogging(connection, deviceId);
+                RegisterCommandHandlers(connection, deviceId, stoppingToken);
 
                 await connection.StartAsync(stoppingToken);
                 logger.LogInformation("Hub 연결 성립: {DeviceId}", deviceId);
@@ -154,6 +157,41 @@ public sealed class AgentHubWorker(
             })
             .WithAutomaticReconnect(retryPolicy)
             .Build();
+    }
+
+    /// <summary>
+    /// 서버가 보내는 CollectNowAsync(IAgentClient의 유일한 메서드)를 처리한다. InventoryCollectionRunner가
+    /// 주기 수집(AgentWorker)과 같은 세마포를 공유하므로, 이미 수집이 돌고 있으면 기다리지 않고
+    /// AlreadyRunning을 그대로 돌려준다. 결과 보고에 InvokeAsync를 쓰는 이유: SendAsync(fire-and-forget)
+    /// 대신 서버가 실제로 수신했는지 확인하고, 실패하면 로그를 남기기 위함이다.
+    /// </summary>
+    private void RegisterCommandHandlers(HubConnection connection, string deviceId, CancellationToken stoppingToken)
+    {
+        connection.On<CollectNowCommand>("CollectNowAsync", async command =>
+        {
+            if (command.SchemaVersion != AgentHubContract.CurrentSchemaVersion)
+            {
+                logger.LogWarning(
+                    "CollectNowCommand SchemaVersion 불일치, 처리하지 않음: {DeviceId}, 수신={Received}, 기대={Expected}",
+                    deviceId, command.SchemaVersion, AgentHubContract.CurrentSchemaVersion);
+                return;
+            }
+
+            logger.LogInformation("지금 수집 명령 수신: {DeviceId}, {CommandId}", deviceId, command.CommandId);
+            var outcome = await collectionRunner.TryRunAsync(stoppingToken);
+            logger.LogInformation(
+                "지금 수집 완료: {DeviceId}, {CommandId}, {Outcome}", deviceId, command.CommandId, outcome);
+
+            var result = new CollectNowResult(AgentHubContract.CurrentSchemaVersion, command.CommandId, outcome, Detail: null);
+            try
+            {
+                await connection.InvokeAsync("ReportCollectNowResultAsync", result, stoppingToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "지금 수집 결과 보고 실패: {DeviceId}, {CommandId}", deviceId, command.CommandId);
+            }
+        });
     }
 
     private void RegisterLifecycleLogging(HubConnection connection, string deviceId)
