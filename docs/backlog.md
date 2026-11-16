@@ -87,6 +87,50 @@
 - **왜 SQL Server 전환 시 반드시 고쳐야 하는가**: SQL Server로 옮기면 길이 미지정 `string` 컬럼이 `nvarchar(max)`로 매핑되는데, `nvarchar(max)` 컬럼에는 일반 B-tree 인덱스를 걸 수 없어 `HasIndex(l => l.ProductName)`가 마이그레이션/인덱스 생성 단계에서 그대로 깨진다. **SQLite → SQL Server 전환 작업을 시작하기 전에 반드시** `ProductName`/`LicenseType`에 적정 길이(예: 200자)를 지정해야 함.
 - **기록일**: 2026-11-10 (Phase 4 code-reviewer 리뷰에서 🟡로 지적됨)
 
+## 보안 (Phase 7 이후)
+
+### mTLS(상호 TLS) 인증 미적용
+- **위치**: `src/NetSamLite.Agent/Realtime/AgentHubWorker.cs`, `src/NetSamLite.Server/Realtime/DeviceTokenAuthenticationHandler.cs`
+- **현상**: 장치 인증이 토큰(Bearer) 방식뿐이고 mTLS가 없다. 토큰 파일이 유출되면 장치를 사칭할 수 있고, 서버 신원 검증은 TLS 인증서에만 의존한다.
+- **지금 안 고치는 이유**: Phase 7 기획서의 확정 결정 2에 따라 이번 Phase는 토큰 방식만 다루기로 범위를 좁혔다. mTLS는 인증서 발급·배포·회전 체계가 별도로 필요해 Phase 7 범위를 넘어선다.
+- **나중에 고려할 방향**: 에이전트별 클라이언트 인증서 발급(Phase 8 정책 서명 키 체계와 함께 검토), Kestrel의 클라이언트 인증서 요구 설정.
+- **기록일**: 2026-11-12
+
+### 에이전트 로컬 토큰 파일이 평문으로 저장됨(ACL/암호화 없음)
+- **위치**: `src/NetSamLite.Agent/Realtime/DeviceTokenStore.cs` (`TokenFilePath`)
+- **현상**: Hub 인증 토큰이 `ProgramData\NetSamLite\device-token.dat`에 평문으로 저장된다. 같은 PC의 다른 프로세스/사용자가 파일을 읽으면 토큰을 탈취해 장치를 사칭할 수 있다.
+- **지금 안 고치는 이유**: CLAUDE.md가 "로컬 정책 캐시 보호(ACL/암호화)"를 Phase 8 범위로 명시했고, 이번 토큰 파일도 같은 성질의 문제라 함께 처리하는 게 자연스럽다.
+- **나중에 고려할 방향**: Windows DPAPI(`ProtectedData.Protect`)로 SYSTEM 계정 범위 암호화, 또는 파일 ACL을 SYSTEM 전용으로 제한.
+- **기록일**: 2026-11-12
+
+### 등록(enrollment) 비밀값이 장치별로 분리되지 않음(공통 비밀값 1개)
+- **위치**: `src/NetSamLite.Server/Realtime/DeviceTokenService.cs`, `src/NetSamLite.Agent/Realtime/DeviceTokenStore.cs` (`NETSAMLITE_ENROLLMENT_SECRET`)
+- **현상**: 모든 장치가 같은 등록 비밀값 1개를 공유한다. 장치별 등록 코드, 만료, 1회용 토큰, 관리자 승인 대기 큐가 없어 비밀값이 유출되면 누구나 장치를 등록할 수 있다.
+- **지금 안 고치는 이유**: Phase 7 기획서의 확정 결정 6에 따라 이번 Phase는 공통 비밀값 1개로 범위를 좁혔다.
+- **나중에 고려할 방향**: 장치별 1회용 등록 코드 발급 + 관리자 승인 대기 큐(대시보드에서 승인) 설계.
+- **기록일**: 2026-11-12
+
+### HTTPS가 강제되지 않아 베어러 토큰이 평문 HTTP로 전송됨
+- **위치**: `src/NetSamLite.Server/Properties/launchSettings.json`(기본 `http://localhost:5136`), `src/NetSamLite.Agent/AgentOptions.cs`(`ServerBaseUrl` 기본값도 http)
+- **현상**: Hub 인증에 쓰는 Bearer 토큰이 암호화되지 않은 HTTP 연결로 오간다. 로컬호스트/신뢰 네트워크 전제이므로 당장 위험은 낮지만, 네트워크 경로 어딘가에서 스니핑되면 토큰이 그대로 노출된다.
+- **지금 안 고치는 이유**: HSTS/인증서 배포 체계가 없는 학습 환경에서 HTTPS를 강제하면 설치 난이도만 올라간다. 로컬호스트/신뢰 네트워크 전용이라는 전제를 `docs/service-install.md`에 명시하는 것으로 이번 Phase는 충분하다고 판단했다.
+- **나중에 고려할 방향**: 자체 서명 인증서 + Kestrel HTTPS 바인딩, 또는 역방향 프록시(IIS/Nginx) 뒤에서 TLS 종료.
+- **기록일**: 2026-11-12
+
+### `/api/v1/inventory` 등 기존 엔드포인트에 장치 토큰 인증이 적용되지 않음
+- **위치**: `src/NetSamLite.Server/Program.cs` (기존 엔드포인트 11개 전부 익명)
+- **현상**: Phase 7은 Hub에만 장치 토큰 인증을 걸었다. `/api/v1/inventory`를 비롯한 기존 REST 엔드포인트는 여전히 누구나 호출할 수 있어, 임의의 클라이언트가 장치를 사칭해 가짜 인벤토리를 전송할 수 있다.
+- **지금 안 고치는 이유**: 지금 적용하면 기존 Server 테스트 다수가 대량으로 깨지고, 에이전트의 기존 전송 경로(`HttpInventorySender`)까지 동시에 바꿔야 해서 Phase 7의 범위를 크게 벗어난다.
+- **나중에 고려할 방향**: `/api/v1/inventory`에도 `DeviceToken` 인증을 확장하고, 에이전트의 `HttpInventorySender`가 `DeviceTokenStore`의 토큰을 `Authorization` 헤더에 싣도록 변경.
+- **기록일**: 2026-11-12
+
+### (참고, Phase 8 검토 후보) 서버 기동 시 stale `IsOnline` 리셋
+- **위치**: `src/NetSamLite.Server/Realtime/DeviceConnectionTracker.cs`, `src/NetSamLite.Server/Program.cs`
+- **현상**: 서버 프로세스가 비정상 종료(강제 종료/크래시)되면 그 순간 연결돼 있던 장치의 `IsOnline=true` 행이 DB에 영구히 남는다(Phase 7 기획서의 「알려진 한계」, 확정 결정 5의 트레이드오프).
+- **지금 안 고치는 이유**: 확정 결정 5(이벤트 기반 즉시 반영)를 선택한 의도적 결과이고, Phase 7 범위에서는 보정하지 않기로 했다.
+- **나중에 고려할 방향**: 서버 기동 시 `DeviceConnection` 테이블에서 `IsOnline=true`로 남아 있는 모든 행을 `false`로 리셋(서버가 막 기동한 시점엔 정의상 아무 연결도 없으므로 안전).
+- **기록일**: 2026-11-12
+
 ## 해결됨
 
 ### 구버전 큐 파일 포맷을 읽을 때 조용히 null Report로 역직렬화됨
