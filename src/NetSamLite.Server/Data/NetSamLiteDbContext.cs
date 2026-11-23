@@ -11,6 +11,8 @@ public sealed class NetSamLiteDbContext(DbContextOptions<NetSamLiteDbContext> op
     public DbSet<SoftwareChangeEventEntity> SoftwareChangeEvents => Set<SoftwareChangeEventEntity>();
     public DbSet<LicenseEntity> Licenses => Set<LicenseEntity>();
     public DbSet<ProhibitedSoftwareEntity> ProhibitedSoftware => Set<ProhibitedSoftwareEntity>();
+    public DbSet<DeviceTokenEntity> DeviceTokens => Set<DeviceTokenEntity>();
+    public DbSet<DeviceConnectionEntity> DeviceConnections => Set<DeviceConnectionEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -54,6 +56,16 @@ public sealed class NetSamLiteDbContext(DbContextOptions<NetSamLiteDbContext> op
             // ProductName이 아니라 정규화된 ProductNameKey에 거는 이유는
             // ProhibitedSoftwareEntity.ComputeKey 주석 참고.
             prohibited.HasIndex(p => p.ProductNameKey).IsUnique();
+        });
+
+        modelBuilder.Entity<DeviceTokenEntity>(token =>
+        {
+            token.HasKey(t => t.DeviceId);
+        });
+
+        modelBuilder.Entity<DeviceConnectionEntity>(connection =>
+        {
+            connection.HasKey(c => c.DeviceId);
         });
     }
 }

@@ -1,9 +1,8 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using NetSamLite.Agent.Collectors;
-using NetSamLite.Agent.Sending;
-using NetSamLite.Shared;
+using NetSamLite.Agent.Realtime;
+using NetSamLite.Shared.Hub;
 
 namespace NetSamLite.Agent;
 
@@ -12,11 +11,13 @@ namespace NetSamLite.Agent;
 /// 그 이후는 매번 같은 간격으로 수집→전송을 반복한다. 매 사이클마다 jitter를 다시 넣지 않는
 /// 이유: 시작 시 한 번만 흩어놓으면 이후 사이클들도 각자 시작 시각 기준으로 계속 흩어진
 /// 상태를 유지하기 때문이다.
+///
+/// 수집·전송은 직접 하지 않고 InventoryCollectionRunner를 경유한다 — "지금 수집"
+/// (AgentHubWorker의 CollectNowCommand 핸들러)과 같은 세마포를 공유해야, 두 흐름이
+/// 동시에 들어와도 ReportDeliveryService의 큐 전송 순서가 뒤집히지 않는다.
 /// </summary>
 public sealed class AgentWorker(
-    ISoftwareCollector softwareCollector,
-    IHardwareCollector hardwareCollector,
-    ReportDeliveryService deliveryService,
+    InventoryCollectionRunner collectionRunner,
     IOptions<AgentOptions> options,
     ILogger<AgentWorker> logger) : BackgroundService
 {
@@ -33,8 +34,16 @@ public sealed class AgentWorker(
         {
             try
             {
-                var report = new InventoryReport(hardwareCollector.Collect(), softwareCollector.Collect());
-                await deliveryService.DeliverAsync(report, stoppingToken);
+                var outcome = await collectionRunner.TryRunAsync(stoppingToken);
+                if (outcome == CollectNowOutcome.AlreadyRunning)
+                {
+                    // "지금 수집" 명령과 이번 주기가 겹쳤다 — 이번 사이클은 건너뛰고 다음 사이클에 다시 시도한다.
+                    logger.LogInformation("지금 수집이 이미 진행 중이라 이번 주기 수집은 건너뜀");
+                }
+                else if (outcome == CollectNowOutcome.Failed)
+                {
+                    logger.LogError("이번 수집 사이클 실패, 다음 사이클에서 다시 시도");
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

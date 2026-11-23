@@ -1,4 +1,7 @@
+using System.Net;
 using System.Text;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using NetSamLite.Server.Data;
 using NetSamLite.Server.Devices;
@@ -6,8 +9,10 @@ using NetSamLite.Server.Inventory;
 using NetSamLite.Server.Licensing;
 using NetSamLite.Server.Normalization;
 using NetSamLite.Server.Policy;
+using NetSamLite.Server.Realtime;
 using NetSamLite.Server.Reports;
 using NetSamLite.Shared;
+using NetSamLite.Shared.Hub;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,12 +35,74 @@ builder.Services.AddScoped<DeviceDirectoryService>();
 builder.Services.AddScoped<LicenseService>();
 builder.Services.AddScoped<ProhibitedSoftwareService>();
 
+// Hub에만 장치 토큰 인증을 건다 — 기존 엔드포인트 11개는 전부 익명 유지(동작 변경 0).
+builder.Services.AddScoped<DeviceTokenService>();
+builder.Services.AddScoped<DeviceConnectionTracker>();
+builder.Services.AddSignalR();
+builder.Services
+    .AddAuthentication(DeviceTokenAuthenticationHandler.SchemeName)
+    .AddScheme<AuthenticationSchemeOptions, DeviceTokenAuthenticationHandler>(
+        DeviceTokenAuthenticationHandler.SchemeName, configureOptions: null);
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
     scope.ServiceProvider.GetRequiredService<NetSamLiteDbContext>().Database.Migrate();
 }
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapHub<AgentHub>(AgentHubContract.Path).RequireAuthorization();
+
+app.MapPost("/api/v1/devices/{deviceId}/enroll", async (
+    string deviceId, EnrollmentRequest request, DeviceTokenService tokenService, CancellationToken ct) =>
+{
+    var token = await tokenService.IssueAsync(deviceId, request.EnrollmentSecret, ct);
+    return token is null ? Results.Unauthorized() : Results.Ok(new EnrollmentResponse(deviceId, token));
+});
+
+// "지금 수집"은 운영자(대시보드)용 명령이라 장치 토큰 인가 대신 localhost(루프백) 제한으로
+// 막는다(확정 결정 3) — Web은 Server와 같은 PC에서 띄우는 전제라 호출이 루프백으로 나간다.
+// 루프백 체크를 다른 모든 검사보다 먼저 수행해, 비루프백 호출자가 404/409로 장치 존재
+// 여부·온라인 여부를 알아낼 수 없게 한다.
+app.MapPost("/api/v1/devices/{deviceId}/collect-now", async (
+    string deviceId,
+    HttpContext httpContext,
+    NetSamLiteDbContext dbContext,
+    DeviceConnectionTracker connectionTracker,
+    IHubContext<AgentHub, IAgentClient> hubContext,
+    CancellationToken ct) =>
+{
+    // RemoteIpAddress가 null인 경우(유닉스 소켓 등 비 TCP 전송)도 거부한다 — "모르면 막는다".
+    // IPAddress.IsLoopback은 IPv4 127.0.0.0/8과 IPv6 ::1을 모두 처리한다(문자열 비교로
+    // "127.0.0.1"만 보면 Kestrel이 IPv6로 수신할 때 정상 요청이 403이 되는 문제를 피한다).
+    var remoteIp = httpContext.Connection.RemoteIpAddress;
+    if (remoteIp is null || !IPAddress.IsLoopback(remoteIp))
+    {
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+    }
+
+    var deviceExists = await dbContext.Devices.AnyAsync(d => d.DeviceId == deviceId, ct);
+    if (!deviceExists)
+    {
+        return Results.NotFound();
+    }
+
+    var statuses = await connectionTracker.ListStatusesAsync(ct);
+    var isOnline = statuses.Any(s => s.DeviceId == deviceId && s.IsOnline);
+    if (!isOnline)
+    {
+        // 명령을 큐에 쌓아 두지 않는다 — 오프라인 장치에는 바로 거절한다.
+        return Results.Conflict();
+    }
+
+    var command = new CollectNowCommand(AgentHubContract.CurrentSchemaVersion, Guid.NewGuid().ToString(), DateTime.UtcNow);
+    await hubContext.Clients.Group(deviceId).CollectNowAsync(command);
+    return Results.Accepted();
+});
 
 app.MapPost("/api/v1/inventory", async (
     InventoryReport? report, InventoryIngestionService ingestionService, CancellationToken cancellationToken) =>

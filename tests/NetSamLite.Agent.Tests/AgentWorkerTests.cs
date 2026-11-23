@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NetSamLite.Agent.Collectors;
+using NetSamLite.Agent.Realtime;
 using NetSamLite.Agent.Sending;
 using NetSamLite.Agent.Tests.Sending;
 using NetSamLite.Shared;
@@ -74,8 +75,10 @@ public sealed class AgentWorkerTests : IDisposable
             sender, queue, optionsAccessor, NullLogger<ReportDeliveryService>.Instance);
         var software = new FakeSoftwareCollector();
         var hardware = new FakeHardwareCollector();
+        var collectionRunner = new InventoryCollectionRunner(
+            software, hardware, delivery, NullLogger<InventoryCollectionRunner>.Instance);
         var sut = new NetSamLite.Agent.AgentWorker(
-            software, hardware, delivery, optionsAccessor, NullLogger<NetSamLite.Agent.AgentWorker>.Instance);
+            collectionRunner, optionsAccessor, NullLogger<NetSamLite.Agent.AgentWorker>.Instance);
 
         await sut.StartAsync(CancellationToken.None);
         try
