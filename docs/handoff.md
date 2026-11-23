@@ -6,10 +6,21 @@
 
 ---
 
-## 현재 상태 (2026-11-16 기준)
+## 현재 상태 (2026-11-24 기준)
 
-- **브랜치**: `feature/2026-11-12-phase7-signalr` (main 아님 — Phase 7은 **완료됐지만 아직 main에 머지 안 됨**), working tree 깨끗함.
-- **origin과의 차이**: 로컬 `main`이 origin보다 12커밋 이상 앞섬, push 안 함(사용자가 아직 요청 안 함). Phase 7 브랜치는 origin에 없음.
+- **Phase 7 완료, main merge 완료, 다음은 Phase 8.**
+- **브랜치**: `main`. `feature/2026-11-12-phase7-signalr`를 `--no-ff`로 merge(커밋 `337fd9e`) 후 `origin/main`에 push 완료 — 로컬/origin 싱크됨.
+  merge 직후 `dotnet build`(경고 0/오류 0) + `dotnet test`(Agent 103 + Server 194, 전체 통과) 재확인함.
+- **stash 1개 남아있음 — 다음 세션이 꼭 확인할 것**: `stash@{0}` "wip: 지금수집 버튼 제거 + 연결상태 폴링 갱신 (미검증, build 막혀있음)".
+  사용자가 대시보드에서 "지금 수집" 버튼을 수동 테스트하다가 **버튼 클릭 이벤트 자체가 전혀 발화하지 않는** 문제를
+  발견함(마우스 클릭·키보드 Enter 둘 다 무반응, Web 서버 로그에 아무 흔적 없음, circuit은 다른 버튼으로 살아있음을
+  확인함 — 원인 미확정 상태에서 사용자가 범위를 바꿔 "버튼 자체를 없애고 폴링 기반 실시간 갱신으로 가자"고 요청).
+  이에 따라 `Devices.razor`에서 "지금 수집" 버튼/컬럼/`CollectNowAsync`/`HttpClientFactory`를 제거하고
+  `PeriodicTimer`로 5초마다 `ConnectionTracker.ListStatusesAsync()`만 가볍게 재조회해 연결 상태를 자동 갱신하도록
+  바꿔둠(+`Program.cs`/`appsettings.json`의 이제 안 쓰는 `NetSamLiteServer` HttpClient 등록 제거). **아직 빌드 검증도
+  안 끝났고(Web 프로세스 파일 잠금으로 막혀 있었음) 사용자가 브라우저로 직접 동작 확인도 안 한 상태** — main 머지
+  범위 밖이라 커밋하지 않고 stash로만 보관함. 다음 세션: `git stash pop` → 빌드/테스트 → 사용자 브라우저 확인 →
+  문제없으면 커밋(서버 쪽 `/collect-now` API·Hub 명령·Agent 수신 로직은 그대로 두기로 함 — UI만 제거).
 - **에이전트 팀 셋업**: `.claude/settings.json`에 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 활성화됨(커밋 `87798c7`).
   `developer` 에이전트가 신설돼 planner → developer → (test-writer, code-reviewer) 흐름을
   team-lead 중계 없이 직접 SendMessage로 처리한다. `.claude/agents/{planner,developer,test-writer,code-reviewer}.md` 참고.
@@ -20,7 +31,7 @@
   진행됨 — developer의 모호한 지점(생성자 변경에 따른 테스트/DI 보정 등)은 team-lead가 직접 판단·승인하는
   방식으로 우회했다. **다음 Phase(8) 기획을 planner에게 새로 시킬 때 한도가 풀렸는지 먼저 확인할 것.**
 
-## Phase 7 (SignalR 실시간 채널) — 완료 (2026-11-16)
+## Phase 7 (SignalR 실시간 채널) — 완료, main merge 완료 (2026-11-16 완료 / 2026-11-24 merge)
 
 기획서: `docs/specs/2026-11-12-phase7-signalr-realtime.md`. 사용자 지시로 7-A/7-B/7-C 각 단계가 끝날 때마다
 test-writer·code-reviewer 검증 → 커밋 → 사용자에게 요약 보고 → 사용자가 "다음"이라고 할 때까지 다음 단계로
@@ -62,21 +73,20 @@ test-writer·code-reviewer 검증 → 커밋 → 사용자에게 요약 보고 �
 
 ## 다음에 할 일
 
-0. **(Phase 7 완료, 다음 결정은 사용자 몫)** Phase 7(7-A/7-B/7-C + 문서화)이 전부 끝났다(`feature/2026-11-12-phase7-signalr`
-   브랜치, 아직 main 머지 전). 다음 세션이 이어서 할 만한 것:
-   - `feature/2026-11-12-phase7-signalr` → `main` 머지 여부/시점을 사용자에게 확인(지난 사이클들처럼
-     `--no-ff` 머지 패턴 사용 가능).
-   - Phase 8(정책 배포·버전·ACK·로컬 캐시) 기획을 `planner`에게 새로 시키기 전에 **세션 한도가 풀렸는지
-     먼저 확인**(`ListAgents`로 상태 보고 `SendMessage` 시도). 안 풀렸으면 team-lead가 직접 기획 초안을
-     잡거나 사용자에게 알릴 것.
+0. **(최우선) stash에 남은 "지금 수집" 제거 + 폴링 전환 작업 마무리.** 위 "현재 상태"의 stash 설명 참고 —
+   `git stash pop` 후 빌드/테스트 확인하고, 사용자가 브라우저에서 실제로 연결 상태가 5초마다 자동 갱신되는지
+   확인하면 커밋. 폴링 간격(5초)이 너무 잦다/느리다는 피드백이 있으면 `Devices.razor`의
+   `StatusRefreshInterval` 상수만 조정하면 됨.
+1. **Phase 7 main merge 완료 — Phase 8 착수 시점.** Phase 8(정책 배포·버전·ACK·로컬 캐시) 기획을 `planner`에게
+   새로 시키기 전에 **세션 한도가 풀렸는지 먼저 확인**(`ListAgents`로 상태 보고 `SendMessage` 시도). 안 풀렸으면
+   team-lead가 직접 기획 초안을 잡거나 사용자에게 알릴 것.
    - Phase 9는 대시보드/운영자 인증이 먼저 구현돼야 시작 가능(CLAUDE.md 절대 규칙 2의 게이트) — Phase 8과
      순서를 사용자와 상의할 것.
-1. **(Phase 6 백로그, Phase 7과 무관, 우선순위 낮음) 백로그 중 하나를 다음 사이클로** — 둘 다 🟡 수준이고 둘 다 `Program.cs` 한 파일:
+2. **(Phase 6 백로그, Phase 7과 무관, 우선순위 낮음) 백로그 중 하나를 다음 사이클로** — 둘 다 🟡 수준이고 둘 다 `Program.cs` 한 파일:
    - `AgentOptions`가 두 경로로 중복 구성됨 (`Program.cs`) — 테스트 0개, DI/Serilog 초기화 순서 제약 있어 신중히
    - Serilog `retainedFileCountLimit`이 "파일 개수" 기준이라 "보관 일수" 의도와 암묵적 전제가 있음 — 효과를 테스트로 직접 검증하기 어려움
    - 같은 파일이라 두 항목을 한 사이클에 묶는 것도 검토 가치 있음(planner-2 기획서의 판단 참고).
-2. **고아 브랜치 정리 필요(사람 판단)**: `auto/20261111-pending-report-id-naming` — 커밋 없이 `74be051`에 멈춰 있음, 1회차 이전에 중단된 시도로 보임. 삭제할지 재사용할지 아직 결정 안 함.
-3. **origin push 여부**: 로컬 12커밋을 언제 push할지 아직 안 정함.
+3. **고아 브랜치 정리 필요(사람 판단)**: `auto/20261111-pending-report-id-naming` — 커밋 없이 `74be051`에 멈춰 있음, 1회차 이전에 중단된 시도로 보임. 삭제할지 재사용할지 아직 결정 안 함.
 4. 「정확성」 섹션의 `LicenseService`/`LicenseMatchingService` 공백 불일치 버그는 범위가 넓어(CRUD+매칭+CSV 전부 영향) Phase 6 범위 밖 — Phase 5 백로그 재검토 시 별도로 다룰 것.
 
 ## 알아두면 좋은 것
